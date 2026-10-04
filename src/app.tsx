@@ -1,13 +1,10 @@
 import type { ComponentType } from 'preact';
 import { InputStatus } from './components/InputStatus';
 import { useT } from './i18n';
+import { lazyView } from './lazy';
 import { href, useRoute, type ViewProps } from './router';
 import { Home } from './views/Home';
-import { KeyTrainer } from './views/KeyTrainer';
-import { NoteTrainer } from './views/NoteTrainer';
 import { SettingsView } from './views/Settings';
-import { SightReading } from './views/SightReading';
-import { Stats } from './views/Stats';
 
 interface NavItem {
   path: string;
@@ -17,10 +14,19 @@ interface NavItem {
   hidden?: boolean;
 }
 
+const NoteTrainer = lazyView(() => import('./views/NoteTrainer').then((m) => m.NoteTrainer));
+const KeyTrainer = lazyView(() => import('./views/KeyTrainer').then((m) => m.KeyTrainer));
+const SightReading = lazyView(() => import('./views/SightReading').then((m) => m.SightReading));
+const Library = lazyView(() => import('./views/Library').then((m) => m.Library));
+const Player = lazyView(() => import('./views/Player').then((m) => m.Player));
+const Stats = lazyView(() => import('./views/Stats').then((m) => m.Stats));
+
 const NAV: NavItem[] = [
   { path: 'notes', label: 'nav.notes', icon: '♩', view: NoteTrainer },
   { path: 'keys', label: 'nav.keys', icon: '♯', view: KeyTrainer },
   { path: 'sight', label: 'nav.sight', icon: '𝄞', view: SightReading },
+  { path: 'library', label: 'nav.library', icon: '❏', view: Library },
+  { path: 'score', label: 'nav.score', icon: '❏', view: Player, hidden: true },
   { path: 'stats', label: 'nav.stats', icon: '▤', view: Stats },
   { path: 'settings', label: 'nav.settings', icon: '⚙', view: SettingsView }
 ];
@@ -39,7 +45,7 @@ export function App() {
         </a>
         <nav class="nav">
           {NAV.filter((n) => !n.hidden).map((n) => (
-            <a key={n.path} href={href(n.path)} class={n.path === current?.path ? 'active' : ''}>
+            <a key={n.path} href={href(n.path)} class={n.path === current?.path || (n.path === 'library' && current?.path === 'score') ? 'active' : ''}>
               <span class="nav-icon" aria-hidden="true">
                 {n.icon}
               </span>
