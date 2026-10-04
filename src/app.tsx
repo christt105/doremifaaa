@@ -3,6 +3,7 @@ import { InputStatus } from './components/InputStatus';
 import { useT } from './i18n';
 import { href, useRoute, type ViewProps } from './router';
 import { Home } from './views/Home';
+import { KeyTrainer } from './views/KeyTrainer';
 import { NoteTrainer } from './views/NoteTrainer';
 import { SettingsView } from './views/Settings';
 
@@ -16,6 +17,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { path: 'notes', label: 'nav.notes', icon: '♩', view: NoteTrainer },
+  { path: 'keys', label: 'nav.keys', icon: '♯', view: KeyTrainer },
   { path: 'settings', label: 'nav.settings', icon: '⚙', view: SettingsView }
 ];
 

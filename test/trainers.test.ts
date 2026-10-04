@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_NOTE_CONFIG, candidates, isCorrect, makeItem, parseItemId } from '../src/lib/notegen';
 import { pick, record, weight, type Deck } from '../src/lib/srs';
+import { DEFAULT_KEY_CONFIG, keyCandidates, keyHint, keyLabel, keyQuestion, tonicPitchClass } from '../src/lib/keygen';
 
 describe('note generation', () => {
   it('covers the staff plus the requested ledger lines', () => {
@@ -68,5 +69,27 @@ describe('spaced repetition', () => {
   it('avoids immediate repeats when possible', () => {
     for (let i = 0; i < 50; i++) expect(pick(['a', 'b', 'c'], {}, ['a', 'b'])).toBe('c');
     expect(pick(['a'], {}, ['a'])).toBe('a');
+  });
+});
+
+describe('key signature questions', () => {
+  it('filters by side and number of accidentals', () => {
+    const ids = keyCandidates({ ...DEFAULT_KEY_CONFIG, side: 'sharps', maxAccidentals: 3 });
+    expect(ids).toEqual(['0:major', '1:major', '2:major', '3:major']);
+    const both = keyCandidates({ ...DEFAULT_KEY_CONFIG, mode: 'both', maxAccidentals: 1 });
+    expect(both).toHaveLength(6);
+  });
+
+  it('resolves the tonic for major and minor', () => {
+    expect(tonicPitchClass(keyQuestion('-3:major'))).toBe(3);
+    expect(tonicPitchClass(keyQuestion('-3:minor'))).toBe(0);
+    expect(tonicPitchClass(keyQuestion('6:major'))).toBe(6);
+    expect(keyLabel(keyQuestion('4:minor').key, 'minor', 'solfege')).toBe('Do♯m');
+  });
+
+  it('gives the classic recognition tips', () => {
+    expect(keyHint(keyQuestion('3:major').key, 'letters')).toEqual({ rule: 'sharps', note: 'G♯' });
+    expect(keyHint(keyQuestion('-4:major').key, 'letters')).toEqual({ rule: 'flats', note: 'A♭' });
+    expect(keyHint(keyQuestion('-1:major').key, 'letters').rule).toBe('oneFlat');
   });
 });
