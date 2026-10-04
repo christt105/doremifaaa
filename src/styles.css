@@ -498,6 +498,7 @@ input[type='range'] {
 .piano {
   position: relative;
   display: flex;
+  border-left: 1px solid #2b3140;
   height: clamp(5.5rem, 14vw, 8.5rem);
   user-select: none;
   touch-action: none;
@@ -505,7 +506,6 @@ input[type='range'] {
 
 .key {
   position: relative;
-  border: 1px solid #2b3140;
   border-radius: 0 0 6px 6px;
   transition: background 0.06s;
 }
@@ -513,7 +513,7 @@ input[type='range'] {
 .key.white {
   background: #fdfcf9;
   height: 100%;
-  margin-right: -1px;
+  box-shadow: inset -1px 0 0 #2b3140, inset 0 -1px 0 #2b3140, inset 0 1px 0 #2b3140;
   display: flex;
   align-items: flex-end;
   justify-content: center;
