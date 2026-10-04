@@ -16,6 +16,8 @@ interface Props {
   titles?: Map<number, string>;
 }
 
+const BLACK_OFFSET: Record<number, number> = { 1: -0.12, 3: 0.12, 6: -0.15, 8: 0, 10: 0.15 };
+
 export function useHeldNotes(): ReadonlySet<number> {
   const [held, setHeld] = useState<ReadonlySet<number>>(new Set(bus.held));
   useEffect(() => bus.onHeld((h) => setHeld(new Set(h))), []);
@@ -99,7 +101,7 @@ export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, 
               data-midi={m + 1}
               class={`key black ${cls(m + 1)}`}
               title={titles?.get(m + 1)}
-              style={{ left: `${(i + 1) * whiteWidth - whiteWidth * 0.3}%`, width: `${whiteWidth * 0.6}%`, background: colors?.get(m + 1) }}
+              style={{ left: `${(i + 1 - 0.3 + (BLACK_OFFSET[(m + 1) % 12] ?? 0) * 0.6) * whiteWidth}%`, width: `${whiteWidth * 0.6}%`, background: colors?.get(m + 1) }}
             />
           ) : null
         )}

@@ -16,7 +16,7 @@ import { href, type ViewProps } from '../router';
 addStrings('es', {
   'player.loading': 'Cargando partitura…',
   'player.error': 'No se ha podido abrir la partitura.',
-  'player.fileGone': 'El archivo ya no está en memoria. Vuelve a abrirlo desde el repertorio.',
+  'player.notFound': 'Esta partitura ya no está disponible. Vuelve al repertorio y ábrela de nuevo.',
   'player.hands': 'Manos',
   'player.both': 'Las dos',
   'player.right': 'Derecha',
@@ -40,7 +40,7 @@ addStrings('es', {
 addStrings('en', {
   'player.loading': 'Loading score…',
   'player.error': 'Could not open the score.',
-  'player.fileGone': 'The file is no longer in memory. Open it again from the repertoire.',
+  'player.notFound': 'This score is no longer available. Go back to the repertoire and open it again.',
   'player.hands': 'Hands',
   'player.both': 'Both',
   'player.right': 'Right',
@@ -225,7 +225,7 @@ export function Player({ route }: ViewProps) {
       <div class="row spread wrap">
         <div>
           <a href={href('library')} class="small">
-            ← {t('player.back')}
+            ← {t('nav.library')}
           </a>
           <h1 style={{ margin: 0 }}>{title || t('nav.score')}</h1>
         </div>
@@ -292,8 +292,8 @@ export function Player({ route }: ViewProps) {
       {status === 'loading' && <div class="card empty">{t('player.loading')}</div>}
       {status === 'error' && (
         <div class="card empty">
-          <p>{error === 'file-gone' ? t('player.fileGone') : t('player.error')}</p>
-          {error !== 'file-gone' && <p class="small muted">{error}</p>}
+          <p>{error === 'not-found' ? t('player.notFound') : t('player.error')}</p>
+          {error !== 'not-found' && <p class="small muted">{error}</p>}
         </div>
       )}
       {f?.done && (
