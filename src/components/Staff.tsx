@@ -92,6 +92,7 @@ export function Staff({ clef, fifths = 0, keySpec, timeSig, notes = [], width, s
     voice.addTickables(tickables);
     const available = stave.getNoteEndX() - stave.getNoteStartX() - 16;
     new Formatter().joinVoices([voice]).format([voice], Math.max(available, 40));
+    if (tickables.length === 1) tickables[0].setXShift(Math.max(0, available / 2 - 20));
     voice.draw(ctx, stave);
   }, [ready, hostWidth, clef, fifths, keySpec, timeSig, notes, width, scale, minHeight]);
 
