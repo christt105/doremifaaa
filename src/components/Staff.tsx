@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { Accidental, BarNote, Formatter, Renderer, Stave, StaveNote, Voice } from 'vexflow/bravura';
+import { Accidental, BarNote, Barline, Beam, Formatter, Renderer, Stave, StaveNote, Voice } from 'vexflow/bravura';
 import { keyAccidentalFor } from '../lib/keys';
 import { type Clef, type Spelled, accidentalVex, vexKey } from '../lib/music';
 
@@ -20,6 +20,7 @@ interface Props {
   width?: number;
   scale?: number;
   minHeight?: number;
+  final?: boolean;
 }
 
 let fontsReady: Promise<unknown> | null = null;
@@ -40,7 +41,7 @@ const FIFTHS_SPEC: Record<number, string> = {
   0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F#', 7: 'C#'
 };
 
-export function Staff({ clef, fifths = 0, keySpec, timeSig, notes = [], width, scale = 1.6, minHeight = 150 }: Props) {
+export function Staff({ clef, fifths = 0, keySpec, timeSig, notes = [], width, scale = 1.6, minHeight = 150, final }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [hostWidth, setHostWidth] = useState(0);
@@ -73,9 +74,11 @@ export function Staff({ clef, fifths = 0, keySpec, timeSig, notes = [], width, s
     stave.addClef(clef);
     stave.addKeySignature(keySpec ?? FIFTHS_SPEC[fifths]);
     if (timeSig) stave.addTimeSignature(timeSig);
+    if (final) stave.setEndBarType(Barline.type.END);
     stave.setContext(ctx).draw();
     if (notes.length === 0) return;
     const tickables: (StaveNote | BarNote)[] = [];
+    const measures: StaveNote[][] = [[]];
     notes.forEach((n) => {
       const keys = n.rest ? [clef === 'treble' ? 'b/4' : 'd/3'] : n.keys.map((k) => vexKey(k, false));
       const sn = new StaveNote({ keys, duration: n.rest ? `${n.duration}r` : n.duration, clef, autoStem: true });
@@ -86,15 +89,21 @@ export function Staff({ clef, fifths = 0, keySpec, timeSig, notes = [], width, s
         });
       if (n.color) sn.setStyle({ fillStyle: n.color, strokeStyle: n.color });
       tickables.push(sn);
-      if (n.barAfter) tickables.push(new BarNote());
+      measures[measures.length - 1].push(sn);
+      if (n.barAfter) {
+        tickables.push(new BarNote());
+        measures.push([]);
+      }
     });
     const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT);
     voice.addTickables(tickables);
+    const beams = measures.flatMap((m) => Beam.generateBeams(m));
     const available = stave.getNoteEndX() - stave.getNoteStartX() - 16;
     new Formatter().joinVoices([voice]).format([voice], Math.max(available, 40));
     if (tickables.length === 1) tickables[0].setXShift(Math.max(0, available / 2 - 20));
     voice.draw(ctx, stave);
-  }, [ready, hostWidth, clef, fifths, keySpec, timeSig, notes, width, scale, minHeight]);
+    beams.forEach((b) => b.setContext(ctx).draw());
+  }, [ready, hostWidth, clef, fifths, keySpec, timeSig, notes, width, scale, minHeight, final]);
 
   return <div class="staff paper" ref={host} />;
 }

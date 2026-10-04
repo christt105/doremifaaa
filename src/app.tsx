@@ -6,6 +6,7 @@ import { Home } from './views/Home';
 import { KeyTrainer } from './views/KeyTrainer';
 import { NoteTrainer } from './views/NoteTrainer';
 import { SettingsView } from './views/Settings';
+import { SightReading } from './views/SightReading';
 import { Stats } from './views/Stats';
 
 interface NavItem {
@@ -19,6 +20,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { path: 'notes', label: 'nav.notes', icon: '♩', view: NoteTrainer },
   { path: 'keys', label: 'nav.keys', icon: '♯', view: KeyTrainer },
+  { path: 'sight', label: 'nav.sight', icon: '𝄞', view: SightReading },
   { path: 'stats', label: 'nav.stats', icon: '▤', view: Stats },
   { path: 'settings', label: 'nav.settings', icon: '⚙', view: SettingsView }
 ];
