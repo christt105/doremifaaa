@@ -39,8 +39,9 @@ export function PdfViewer({ route }: ViewProps) {
   const shell = useRef<HTMLDivElement>(null);
 
   const scrollBy = (dir: 1 | -1) => {
-    const el = document.scrollingElement ?? document.documentElement;
-    el.scrollBy({ top: dir * window.innerHeight * 0.85, behavior: 'smooth' });
+    const full = document.fullscreenElement;
+    const el = full ?? document.scrollingElement ?? document.documentElement;
+    el.scrollBy({ top: dir * (full ? full.clientHeight : window.innerHeight) * 0.85, behavior: 'smooth' });
   };
 
   useEffect(() => {
