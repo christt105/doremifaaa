@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_NOTE_CONFIG, candidates, isCorrect, makeItem, parseItemId } from '../src/lib/notegen';
+import { pick, record, weight, type Deck } from '../src/lib/srs';
+
+describe('note generation', () => {
+  it('covers the staff plus the requested ledger lines', () => {
+    const ids = candidates({ ...DEFAULT_NOTE_CONFIG, clef: 'treble', below: 0, above: 0 }, 0);
+    const midis = ids.map((id) => makeItem(id, 0).midi).sort((a, b) => a - b);
+    expect(midis[0]).toBe(62);
+    expect(midis[midis.length - 1]).toBe(79);
+    const wider = candidates({ ...DEFAULT_NOTE_CONFIG, clef: 'bass', below: 2, above: 2 }, 0).map((id) => makeItem(id, 0).midi);
+    expect(Math.min(...wider)).toBe(35);
+    expect(Math.max(...wider)).toBe(65);
+  });
+
+  it('applies the key signature to the expected pitch', () => {
+    const ids = candidates({ ...DEFAULT_NOTE_CONFIG, clef: 'treble' }, 2);
+    const f5 = ids.map((id) => makeItem(id, 2)).find((i) => i.note.letter === 3 && i.note.octave === 5);
+    expect(f5?.midi).toBe(78);
+    const c5 = ids.map((id) => makeItem(id, 2)).find((i) => i.note.letter === 0 && i.note.octave === 5);
+    expect(c5?.midi).toBe(73);
+  });
+
+  it('adds accidentals only on black keys', () => {
+    const ids = candidates({ ...DEFAULT_NOTE_CONFIG, accidentals: true }, 0);
+    const parsed = ids.map((id) => parseItemId(id)!.note);
+    expect(parsed.some((n) => n.letter === 2 && n.acc === 1)).toBe(false);
+    expect(parsed.some((n) => n.letter === 3 && n.acc === 1)).toBe(true);
+    expect(parsed.some((n) => n.letter === 0 && n.acc === -1)).toBe(false);
+  });
+
+  it('checks answers with or without octave', () => {
+    const item = makeItem('treble:28:0', 0);
+    expect(item.midi).toBe(60);
+    expect(isCorrect(item, 60, true)).toBe(true);
+    expect(isCorrect(item, 72, true)).toBe(false);
+    expect(isCorrect(item, 72, false)).toBe(true);
+    expect(isCorrect(item, 61, false)).toBe(false);
+  });
+});
+
+describe('spaced repetition', () => {
+  it('drops to the first box on a miss and climbs on fast answers', () => {
+    let deck: Deck = {};
+    deck = record(deck, 'a', true, 800, 2000);
+    deck = record(deck, 'a', true, 800, 2000);
+    expect(deck.a.box).toBe(2);
+    deck = record(deck, 'a', true, 3000, 2000);
+    expect(deck.a.box).toBe(2);
+    deck = record(deck, 'a', false, 800, 2000);
+    expect(deck.a.box).toBe(0);
+    expect(deck.a.seen).toBe(4);
+    expect(deck.a.correct).toBe(3);
+  });
+
+  it('favours weak items', () => {
+    let deck: Deck = {};
+    for (let i = 0; i < 5; i++) deck = record(deck, 'easy', true, 500, 2000);
+    for (let i = 0; i < 3; i++) deck = record(deck, 'hard', false, 500, 2000);
+    expect(weight(deck.hard)).toBeGreaterThan(weight(deck.easy) * 5);
+    let seq = 0;
+    const rng = () => ((seq = (seq * 9301 + 49297) % 233280) / 233280);
+    const counts = { easy: 0, hard: 0 };
+    for (let i = 0; i < 2000; i++) counts[pick(['easy', 'hard'], deck, [], rng) as 'easy' | 'hard']++;
+    expect(counts.hard).toBeGreaterThan(counts.easy * 5);
+  });
+
+  it('avoids immediate repeats when possible', () => {
+    for (let i = 0; i < 50; i++) expect(pick(['a', 'b', 'c'], {}, ['a', 'b'])).toBe('c');
+    expect(pick(['a'], {}, ['a'])).toBe('a');
+  });
+});
