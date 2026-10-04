@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_NOTE_CONFIG, candidates, isCorrect, makeItem, parseItemId } from '../src/lib/notegen';
 import { pick, record, weight, type Deck } from '../src/lib/srs';
+import { daily, errorByMidi, noteRows, streak, weakest } from '../src/lib/stats';
 import { DEFAULT_KEY_CONFIG, keyCandidates, keyHint, keyLabel, keyQuestion, tonicPitchClass } from '../src/lib/keygen';
 
 describe('note generation', () => {
@@ -91,5 +92,38 @@ describe('key signature questions', () => {
     expect(keyHint(keyQuestion('3:major').key, 'letters')).toEqual({ rule: 'sharps', note: 'G♯' });
     expect(keyHint(keyQuestion('-4:major').key, 'letters')).toEqual({ rule: 'flats', note: 'A♭' });
     expect(keyHint(keyQuestion('-1:major').key, 'letters').rule).toBe('oneFlat');
+  });
+});
+
+describe('stats aggregation', () => {
+  const stat = (seen: number, correct: number, box: number, avgMs = 1000) => ({ seen, correct, box, last: 0, avgMs });
+
+  it('aggregates note misses per pitch and clef', () => {
+    const rows = noteRows({ 'treble:28:0': stat(4, 1, 0), 'treble:28:1': stat(2, 2, 2), 'bass:28:0': stat(3, 3, 3), junk: stat(1, 1, 1) });
+    expect(rows).toHaveLength(3);
+    const treble = errorByMidi(rows, 'treble');
+    expect(treble.get(60)).toEqual({ seen: 4, errors: 3 });
+    expect(treble.get(61)).toEqual({ seen: 2, errors: 0 });
+  });
+
+  it('ranks the weakest items and skips mastered ones', () => {
+    const rows = noteRows({ 'treble:30:0': stat(5, 1, 0, 3000), 'treble:31:0': stat(5, 4, 2), 'treble:32:0': stat(8, 8, 5), 'treble:33:0': stat(1, 0, 0) });
+    expect(weakest(rows, 5).map((r) => r.id)).toEqual(['treble:30:0', 'treble:31:0']);
+  });
+
+  it('buckets sessions per day and counts the streak', () => {
+    const now = new Date(2026, 9, 4, 12).getTime();
+    const day = 86400000;
+    const sessions = [
+      { mode: 'notes', at: now - 2 * day, total: 10, correct: 8, avgMs: 1 },
+      { mode: 'keys', at: now - day, total: 5, correct: 5, avgMs: 1 },
+      { mode: 'notes', at: now, total: 20, correct: 10, avgMs: 1 },
+      { mode: 'notes', at: now, total: 1, correct: 1, avgMs: 1 }
+    ];
+    const buckets = daily(sessions, 3, now);
+    expect(buckets.map((b) => b.answers)).toEqual([10, 5, 21]);
+    expect(streak(sessions, now)).toBe(3);
+    expect(streak(sessions.slice(0, 2), now)).toBe(2);
+    expect(streak(sessions.slice(0, 1), now)).toBe(0);
   });
 });

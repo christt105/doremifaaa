@@ -12,6 +12,8 @@ interface Props {
   marks?: Map<number, KeyMark>;
   interactive?: boolean;
   labels?: boolean;
+  colors?: Map<number, string>;
+  titles?: Map<number, string>;
 }
 
 export function useHeldNotes(): ReadonlySet<number> {
@@ -20,7 +22,7 @@ export function useHeldNotes(): ReadonlySet<number> {
   return held;
 }
 
-export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, labels }: Props) {
+export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, labels, colors, titles }: Props) {
   const held = useHeldNotes();
   const { naming, showNoteNames } = useStore(settings);
   const showLabels = labels ?? showNoteNames;
@@ -86,7 +88,7 @@ export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, 
     <div class="piano-scroll" ref={scroller}>
       <div class="piano" style={{ minWidth: `${whites.length * 1.9}rem` }} {...handlers}>
         {whites.map((m) => (
-          <div key={m} data-midi={m} class={`key white ${cls(m)}`} style={{ width: `${whiteWidth}%` }}>
+          <div key={m} data-midi={m} class={`key white ${cls(m)}`} title={titles?.get(m)} style={{ width: `${whiteWidth}%`, background: colors?.get(m) }}>
             {(showLabels || m % 12 === 0) && <span class="key-label">{midiName(m, naming, m % 12 === 0)}</span>}
           </div>
         ))}
@@ -96,7 +98,8 @@ export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, 
               key={m + 1}
               data-midi={m + 1}
               class={`key black ${cls(m + 1)}`}
-              style={{ left: `${(i + 1) * whiteWidth - whiteWidth * 0.3}%`, width: `${whiteWidth * 0.6}%` }}
+              title={titles?.get(m + 1)}
+              style={{ left: `${(i + 1) * whiteWidth - whiteWidth * 0.3}%`, width: `${whiteWidth * 0.6}%`, background: colors?.get(m + 1) }}
             />
           ) : null
         )}
