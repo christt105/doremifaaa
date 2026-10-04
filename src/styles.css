@@ -766,3 +766,89 @@ th.num {
     padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart .axis {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart .bar {
+  fill: var(--accent);
+  opacity: 0.85;
+}
+
+.chart .bar.hot {
+  opacity: 1;
+}
+
+.chart-tip {
+  min-height: 1.3rem;
+  color: var(--ink-2);
+}
+
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.heat-ramp {
+  width: 9rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in oklab, #c2372f 12%, #fdfcf9), #c2372f 90%);
+  border: 1px solid var(--line);
+}
+
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.key-cell {
+  display: flex;
+  flex-direction: column;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.key-cell span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.key-cell.k-good {
+  background: var(--ok-bg);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+.key-cell.k-mid {
+  background: var(--warn-bg);
+}
+
+.key-cell.k-bad {
+  background: var(--bad-bg);
+  border-color: color-mix(in srgb, var(--bad) 40%, transparent);
+}
+
+.key-cell.k-none {
+  opacity: 0.55;
+}
+
+.stat.card {
+  background: var(--surface);
+}
