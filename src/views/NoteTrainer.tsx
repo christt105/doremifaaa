@@ -97,6 +97,7 @@ export function NoteTrainer() {
   const deck = useRef<Deck>(loadDeck('notes'));
   const started = useRef(0);
   const recent = useRef<string[]>([]);
+  const answered = useRef(false);
   const state = useRef({ phase, item, misses, cfg, results });
   state.current = { phase, item, misses, cfg, results };
 
@@ -114,6 +115,7 @@ export function NoteTrainer() {
     setItem(makeItem(id, fifths));
     setMisses(0);
     setFlash(null);
+    answered.current = false;
     started.current = performance.now();
   };
 
@@ -143,8 +145,10 @@ export function NoteTrainer() {
           if (s.phase === 'idle' && e.source === 'midi') start();
           return;
         }
+        if (answered.current) return;
         const item = s.item;
         if (isCorrect(item, e.midi, s.cfg.strictOctave)) {
+          answered.current = true;
           const ms = performance.now() - started.current;
           const ok = s.misses === 0;
           if (ok) deck.current = record(deck.current, item.id, true, ms, SLOW_MS);
