@@ -958,3 +958,70 @@ th.num {
     bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.pdf-page {
+  width: 100%;
+  max-width: 1400px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+:fullscreen {
+  background: var(--bg);
+  overflow: auto;
+  padding: 1rem;
+}
+
+.piece-actions {
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.piece-actions .button {
+  min-height: 2.2rem;
+  padding: 0.3rem 0.8rem;
+}
+
+.badge.status-learning {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.badge.status-mastered {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+@media (max-width: 720px) {
+  .piece {
+    flex-wrap: wrap;
+  }
+
+  .piece-actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 2.8rem;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1080px) {
+  .nav-label {
+    display: none;
+  }
+
+  .nav a {
+    padding: 0.45rem 0.65rem;
+  }
+
+  .nav-icon {
+    font-size: 1.15rem;
+  }
+}
