@@ -181,7 +181,8 @@ export function SightReading() {
           setPhase('play');
           s.phase = 'play';
         }
-        if (s.phase !== 'play') return;
+        const early = s.phase === 'countin' && s.cfg.mode === 'tempo';
+        if (s.phase !== 'play' && !early) return;
         if (s.cfg.mode === 'wait') {
           const target = s.fragment.notes[s.index];
           if (!target) return;
@@ -205,7 +206,7 @@ export function SightReading() {
         const beat = (performance.now() - tempo.current.t0) / (60000 / s.cfg.bpm);
         const j = judgeTempo(s.fragment, tempo.current.judged, e.midi, beat);
         if (!j) {
-          setWrongs((w) => w + 1);
+          if (!early) setWrongs((w) => w + 1);
           return;
         }
         tempo.current.judged.add(j.index);
