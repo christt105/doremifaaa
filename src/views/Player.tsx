@@ -207,6 +207,8 @@ export function Player({ route }: ViewProps) {
     if (!f) return;
     setLoop(next);
     f.setLoop(next ? { from: next.from - 1, to: next.to - 1 } : null);
+    startedAt.current = 0;
+    setLastWrong(null);
     redraw();
     rerender();
   };

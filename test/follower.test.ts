@@ -65,6 +65,15 @@ describe('score follower', () => {
     expect(f.index).toBe(0);
   });
 
+  it('clears the mistakes when starting over', () => {
+    const f = new Follower(steps);
+    f.noteOn(1, 0);
+    expect(f.wrongTotal).toBe(1);
+    f.restart();
+    expect(f.wrongTotal).toBe(0);
+    expect(f.worstMeasures()).toEqual([]);
+  });
+
   it('reports the worst measures', () => {
     const f = new Follower(steps);
     f.noteOn(1, 0);

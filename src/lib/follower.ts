@@ -66,6 +66,8 @@ export class Follower {
   restart(): number {
     this.index = this.firstPlayable(this.startIndex());
     this.got.clear();
+    this.errors.clear();
+    this.wrongTotal = 0;
     this.done = false;
     return this.index;
   }
