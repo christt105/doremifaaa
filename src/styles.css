@@ -723,6 +723,8 @@ th.num {
 @media (max-width: 720px) {
   .topbar {
     gap: 0.5rem;
+    backdrop-filter: none;
+    background: var(--bg);
   }
 
   .nav {
