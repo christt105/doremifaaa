@@ -16,7 +16,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "serve": "node server/index.mjs"
+    "serve": "node server/index.mjs",
+    "deploy:pages": "node scripts/deploy-pages.mjs"
   },
   "dependencies": {
     "opensheetmusicdisplay": "^2.2.0",
