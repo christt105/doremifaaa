@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { PianoKeyboard } from '../components/PianoKeyboard';
 import { Segmented } from '../components/Segmented';
 import { Staff } from '../components/Staff';
-import { addStrings, useT } from '../i18n';
+import { useI18n } from '../i18n';
 import { bus } from '../lib/input/bus';
 import {
   DEFAULT_KEY_CONFIG,
@@ -24,54 +24,6 @@ import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
 
-addStrings('es', {
-  'keys.title': 'Armaduras',
-  'keys.lead': 'Di la tonalidad de la armadura: pulsa el botón o toca la tónica en el piano. Las que más te cuestan vuelven antes.',
-  'keys.mode': 'Pregunta',
-  'keys.major': 'Mayor',
-  'keys.minor': 'Menor',
-  'keys.both': 'Las dos',
-  'keys.side': 'Alteraciones',
-  'keys.sharps': 'Sostenidos',
-  'keys.flats': 'Bemoles',
-  'keys.max': 'Máximo de alteraciones',
-  'keys.ask.major': '¿Qué tonalidad mayor es?',
-  'keys.ask.minor': '¿Qué tonalidad menor es?',
-  'keys.right': '{key}',
-  'keys.wrongWas': 'Era {key}',
-  'keys.hint.sharps': 'Truco: el último sostenido ({note}) es la sensible; la tónica está un semitono por encima.',
-  'keys.hint.flats': 'Truco: el penúltimo bemol ({note}) es la tónica.',
-  'keys.hint.oneFlat': 'Truco: un solo bemol (Si♭) es Fa mayor, hay que memorizarla.',
-  'keys.hint.none': 'Sin alteraciones: Do mayor o La menor.',
-  'keys.hint.minor': 'La menor relativa está una tercera menor (3 semitonos) por debajo de la mayor.',
-  'keys.summary': 'Resumen',
-  'keys.weak': 'Para repasar'
-});
-
-addStrings('en', {
-  'keys.title': 'Key signatures',
-  'keys.lead': 'Name the key: tap the button or play the tonic on the piano. The ones you struggle with come back sooner.',
-  'keys.mode': 'Question',
-  'keys.major': 'Major',
-  'keys.minor': 'Minor',
-  'keys.both': 'Both',
-  'keys.side': 'Accidentals',
-  'keys.sharps': 'Sharps',
-  'keys.flats': 'Flats',
-  'keys.max': 'Maximum accidentals',
-  'keys.ask.major': 'Which major key is it?',
-  'keys.ask.minor': 'Which minor key is it?',
-  'keys.right': '{key}',
-  'keys.wrongWas': 'It was {key}',
-  'keys.hint.sharps': 'Tip: the last sharp ({note}) is the leading note; the tonic is a semitone above.',
-  'keys.hint.flats': 'Tip: the second to last flat ({note}) is the tonic.',
-  'keys.hint.oneFlat': 'Tip: a single flat (B♭) is F major, just memorise it.',
-  'keys.hint.none': 'No accidentals: C major or A minor.',
-  'keys.hint.minor': 'The relative minor is a minor third (3 semitones) below the major.',
-  'keys.summary': 'Summary',
-  'keys.weak': 'To review'
-});
-
 const CONFIG_KEY = 'doremifaaa.keys.config';
 const SLOW_MS = 3000;
 
@@ -84,7 +36,7 @@ interface Result {
 }
 
 export function KeyTrainer() {
-  const t = useT();
+  const { t, percent, seconds } = useI18n();
   const { naming, feedbackSounds } = useStore(settings);
   const [cfg, setCfg] = useState<KeyConfig>({ ...DEFAULT_KEY_CONFIG, ...load<Partial<KeyConfig>>(CONFIG_KEY, {}) });
   const [phase, setPhase] = useState<Phase>('idle');
@@ -191,11 +143,11 @@ export function KeyTrainer() {
                 <h2>{t('keys.summary')}</h2>
                 <div class="stat-row">
                   <div class="stat">
-                    <strong>{results.length ? Math.round((correct / results.length) * 100) : 0}%</strong>
+                    <strong>{percent(results.length ? correct / results.length : 0)}</strong>
                     <span>{t('common.accuracy')}</span>
                   </div>
                   <div class="stat">
-                    <strong>{(results.reduce((a, r) => a + r.ms, 0) / Math.max(1, results.length) / 1000).toFixed(1)} s</strong>
+                    <strong>{seconds(results.reduce((a, r) => a + r.ms, 0) / Math.max(1, results.length))}</strong>
                     <span>{t('common.time')}</span>
                   </div>
                 </div>
@@ -239,7 +191,7 @@ export function KeyTrainer() {
                     </div>
                     {answer && !answer.ok && hint && (
                       <p class="small muted" style={{ margin: 0 }}>
-                        {t(`keys.hint.${hint.rule}`, { note: hint.note })}
+                        {t(`keys.hint.${hint.rule}`, { note: hint.note, major: hint.major, minor: hint.minor })}
                         {q?.quality === 'minor' && ' ' + t('keys.hint.minor')}
                       </p>
                     )}
@@ -281,7 +233,7 @@ export function KeyTrainer() {
                 <span>&nbsp;</span>
               </div>
               <div class="stat">
-                <strong>{results.length ? Math.round((correct / results.length) * 100) : 0}%</strong>
+                <strong>{percent(results.length ? correct / results.length : 0)}</strong>
                 <span>{t('common.accuracy')}</span>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 import { PianoKeyboard } from '../components/PianoKeyboard';
-import { addStrings, useT } from '../i18n';
+import { useI18n } from '../i18n';
 import { keyLabel } from '../lib/keygen';
 import { KEY_SIGNATURES } from '../lib/keys';
 import { midiName, noteName } from '../lib/music';
@@ -10,72 +10,12 @@ import { MASTERED_BOX, daily, errorByMidi, keyRows, noteRows, streak, weakest } 
 import { useStore } from '../lib/store';
 import { href } from '../router';
 
-addStrings('es', {
-  'stats.title': 'Progreso',
-  'stats.lead': 'Todo se guarda en este navegador. Puedes exportarlo desde Ajustes.',
-  'stats.empty': 'Aún no hay datos. Haz una sesión de notas o de armaduras y vuelve aquí.',
-  'stats.sessions': 'Sesiones',
-  'stats.answers': 'Respuestas',
-  'stats.streak': 'Días seguidos',
-  'stats.week': 'Precisión 7 días',
-  'stats.activity': 'Respuestas por día (últimos 28 días)',
-  'stats.activityTip': '{day}: {n} respuestas, {acc} de acierto',
-  'stats.heat': 'Fallos por nota',
-  'stats.heatLegend': 'Más rojo, más fallos. Las teclas sin color no se han preguntado.',
-  'stats.weakNotes': 'Notas que más te cuestan',
-  'stats.keysTitle': 'Armaduras',
-  'stats.keysLegend': 'Verde: dominada (acertada rápido varias veces). Rojo: la fallas a menudo.',
-  'stats.note': 'Nota',
-  'stats.clef': 'Clave',
-  'stats.seen': 'Vistas',
-  'stats.time': 'Tiempo',
-  'stats.level': 'Nivel',
-  'stats.mastered': 'Dominada',
-  'stats.recent': 'Últimas sesiones',
-  'stats.mode': 'Modo',
-  'stats.date': 'Fecha',
-  'stats.noWeak': 'Nada destacable: o no hay datos suficientes o lo dominas todo.',
-  'stats.practise': 'Practicar'
-});
-
-addStrings('en', {
-  'stats.title': 'Progress',
-  'stats.lead': 'Everything is stored in this browser. You can export it from Settings.',
-  'stats.empty': 'No data yet. Do a notes or key signature session and come back.',
-  'stats.sessions': 'Sessions',
-  'stats.answers': 'Answers',
-  'stats.streak': 'Day streak',
-  'stats.week': '7-day accuracy',
-  'stats.activity': 'Answers per day (last 28 days)',
-  'stats.activityTip': '{day}: {n} answers, {acc} correct',
-  'stats.heat': 'Misses per note',
-  'stats.heatLegend': 'Redder means more misses. Uncoloured keys have not been asked yet.',
-  'stats.weakNotes': 'Notes you struggle with most',
-  'stats.keysTitle': 'Key signatures',
-  'stats.keysLegend': 'Green: mastered (answered fast several times). Red: you often miss it.',
-  'stats.note': 'Note',
-  'stats.clef': 'Clef',
-  'stats.seen': 'Seen',
-  'stats.time': 'Time',
-  'stats.level': 'Level',
-  'stats.mastered': 'Mastered',
-  'stats.recent': 'Recent sessions',
-  'stats.mode': 'Mode',
-  'stats.date': 'Date',
-  'stats.noWeak': 'Nothing stands out: either there is not enough data or you master it all.',
-  'stats.practise': 'Practise'
-});
-
-function pct(v: number | null): string {
-  return v === null ? '–' : `${Math.round(v * 100)}%`;
-}
-
 function heat(rate: number): string {
   return `color-mix(in oklab, #c2372f ${Math.round(12 + rate * 78)}%, #fdfcf9)`;
 }
 
 function ActivityChart({ data }: { data: ReturnType<typeof daily> }) {
-  const t = useT();
+  const { t, number, percent, date } = useI18n();
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(10, ...data.map((d) => d.answers));
   const w = 560;
@@ -92,7 +32,7 @@ function ActivityChart({ data }: { data: ReturnType<typeof daily> }) {
           <g key={v}>
             <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} class="grid" />
             <text x={pad.l - 6} y={y(v) + 4} class="axis" text-anchor="end">
-              {v}
+              {number(v)}
             </text>
           </g>
         ))}
@@ -111,7 +51,7 @@ function ActivityChart({ data }: { data: ReturnType<typeof daily> }) {
               )}
               {i % 7 === data.length % 7 && (
                 <text x={x + bw / 2} y={h - 5} class="axis" text-anchor="middle">
-                  {d.day.slice(8)}/{d.day.slice(5, 7)}
+                  {date(d.day, { day: 'numeric', month: 'numeric' })}
                 </text>
               )}
             </g>
@@ -121,9 +61,9 @@ function ActivityChart({ data }: { data: ReturnType<typeof daily> }) {
       <div class="chart-tip small" aria-live="polite">
         {hovered
           ? t('stats.activityTip', {
-              day: hovered.day,
+              day: date(hovered.day, { weekday: 'short', day: 'numeric', month: 'short' }),
               n: hovered.answers,
-              acc: pct(hovered.answers ? hovered.correct / hovered.answers : null)
+              acc: percent(hovered.answers ? hovered.correct / hovered.answers : null)
             })
           : ' '}
       </div>
@@ -132,7 +72,7 @@ function ActivityChart({ data }: { data: ReturnType<typeof daily> }) {
 }
 
 export function Stats() {
-  const t = useT();
+  const { t, number, percent, seconds, date } = useI18n();
   const { naming } = useStore(settings);
   const data = useMemo(() => {
     const notes = noteRows(loadDeck('notes'));
@@ -153,7 +93,7 @@ export function Stats() {
     errorByMidi(notes, clef).forEach((v, midi) => {
       const rate = v.errors / Math.max(1, v.seen);
       colors.set(midi, heat(rate));
-      titles.set(midi, `${midiName(midi, naming)} · ${v.seen - v.errors}/${v.seen}`);
+      titles.set(midi, `${midiName(midi, naming)} · ${number(v.seen - v.errors)}/${number(v.seen)}`);
     });
     return { colors, titles };
   };
@@ -189,19 +129,19 @@ export function Stats() {
       </div>
       <div class="stat-row">
         <div class="stat card">
-          <strong>{sessions.length}</strong>
+          <strong>{number(sessions.length)}</strong>
           <span>{t('stats.sessions')}</span>
         </div>
         <div class="stat card">
-          <strong>{answers}</strong>
+          <strong>{number(answers)}</strong>
           <span>{t('stats.answers')}</span>
         </div>
         <div class="stat card">
-          <strong>{streak(sessions)}</strong>
+          <strong>{number(streak(sessions))}</strong>
           <span>{t('stats.streak')}</span>
         </div>
         <div class="stat card">
-          <strong>{pct(weekAcc)}</strong>
+          <strong>{percent(weekAcc)}</strong>
           <span>{t('stats.week')}</span>
         </div>
       </div>
@@ -217,9 +157,9 @@ export function Stats() {
           <p class="muted small">{t('stats.heatLegend')}</p>
         </div>
         <div class="heat-legend small muted" aria-hidden="true">
-          <span>0%</span>
+          <span>{percent(0)}</span>
           <span class="heat-ramp" />
-          <span>100%</span>
+          <span>{percent(1)}</span>
         </div>
         <h3>𝄞 {t('common.treble')}</h3>
         <PianoKeyboard low={48} high={96} interactive={false} labels={false} colors={treble.colors} titles={treble.titles} />
@@ -256,9 +196,9 @@ export function Stats() {
                       <strong>{noteName(r.note, naming, true)}</strong>
                     </td>
                     <td>{r.clef === 'treble' ? '𝄞' : '𝄢'}</td>
-                    <td class="num">{r.stat.seen}</td>
-                    <td class="num">{pct(accuracy(r.stat))}</td>
-                    <td class="num">{(r.stat.avgMs / 1000).toFixed(1)} s</td>
+                    <td class="num">{number(r.stat.seen)}</td>
+                    <td class="num">{percent(accuracy(r.stat))}</td>
+                    <td class="num">{seconds(r.stat.avgMs)}</td>
                     <td class="num">
                       {r.stat.box}/{MASTERED_BOX}
                     </td>
@@ -289,12 +229,12 @@ export function Stats() {
                 <div
                   key={`${k.fifths}:${quality}`}
                   class={`key-cell k-${state}`}
-                  title={s ? `${s.correct}/${s.seen} · ${(s.avgMs / 1000).toFixed(1)} s` : ''}
+                  title={s ? `${number(s.correct)}/${number(s.seen)} · ${seconds(s.avgMs)}` : ''}
                 >
                   <strong>{keyLabel(k, quality, naming)}</strong>
                   <span>
                     {Math.abs(k.fifths)}
-                    {k.fifths >= 0 ? '♯' : '♭'} · {s ? pct(accuracy(s)) : '–'}
+                    {k.fifths >= 0 ? '♯' : '♭'} · {s ? percent(accuracy(s)) : '–'}
                     {state === 'good' && ' ✓'}
                   </span>
                 </div>
@@ -324,11 +264,11 @@ export function Stats() {
                   .reverse()
                   .map((s) => (
                     <tr key={s.at}>
-                      <td>{new Date(s.at).toLocaleString()}</td>
+                      <td>{date(s.at, { dateStyle: 'short', timeStyle: 'short' })}</td>
                       <td>{t(`nav.${s.mode}`)}</td>
-                      <td class="num">{s.total}</td>
-                      <td class="num">{pct(s.correct / s.total)}</td>
-                      <td class="num">{(s.avgMs / 1000).toFixed(1)} s</td>
+                      <td class="num">{number(s.total)}</td>
+                      <td class="num">{percent(s.correct / s.total)}</td>
+                      <td class="num">{seconds(s.avgMs)}</td>
                     </tr>
                   ))}
               </tbody>

@@ -1,8 +1,9 @@
-import type { Naming } from './music';
+import { defaultNaming, detectLang, isAvailable } from './locales';
+import { NAMINGS, type Naming } from './music';
 import { load, save } from './storage';
 import { createStore } from './store';
 
-export type Lang = 'es' | 'en';
+export type Lang = string;
 
 export interface Settings {
   lang: Lang;
@@ -20,10 +21,10 @@ export interface Settings {
 const KEY = 'doremifaaa.settings';
 
 function defaults(): Settings {
-  const lang: Lang = typeof navigator !== 'undefined' && !navigator.language.startsWith('es') ? 'en' : 'es';
+  const lang = detectLang();
   return {
     lang,
-    naming: lang === 'es' ? 'solfege' : 'letters',
+    naming: defaultNaming(lang),
     midiInput: 'all',
     soundOnScreen: true,
     soundOnMidi: false,
@@ -35,7 +36,14 @@ function defaults(): Settings {
   };
 }
 
-export const settings = createStore<Settings>({ ...defaults(), ...load<Partial<Settings>>(KEY, {}) }, (v) => save(KEY, v));
+function stored(): Partial<Settings> {
+  const s = load<Partial<Settings>>(KEY, {});
+  if (s.lang !== undefined && !isAvailable(s.lang)) delete s.lang;
+  if (s.naming !== undefined && !NAMINGS.includes(s.naming)) delete s.naming;
+  return s;
+}
+
+export const settings = createStore<Settings>({ ...defaults(), ...stored() }, (v) => save(KEY, v));
 
 export function updateSettings(patch: Partial<Settings>): void {
   settings.set((prev) => ({ ...prev, ...patch }));

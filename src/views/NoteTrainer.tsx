@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { PianoKeyboard, type KeyMark } from '../components/PianoKeyboard';
 import { Segmented } from '../components/Segmented';
 import { Staff } from '../components/Staff';
-import { addStrings, useT } from '../i18n';
+import { useI18n } from '../i18n';
 import { bus } from '../lib/input/bus';
 import { KEY_SIGNATURES } from '../lib/keys';
 import { midiName, noteName } from '../lib/music';
@@ -24,56 +24,6 @@ import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
 
-addStrings('es', {
-  'notes.title': 'Lectura de notas',
-  'notes.lead': 'Aparece una nota en el pentagrama: tócala. Las que fallas o tardas en leer vuelven a salir más a menudo.',
-  'notes.clef': 'Clave',
-  'notes.mixed': 'Mezcladas',
-  'notes.below': 'Líneas adicionales por debajo',
-  'notes.above': 'Líneas adicionales por encima',
-  'notes.accidentals': 'Incluir sostenidos y bemoles',
-  'notes.key': 'Armadura',
-  'notes.keyNone': 'Sin armadura',
-  'notes.keyRandom': 'Aleatoria',
-  'notes.strict': 'Exigir la octava exacta',
-  'notes.length': 'Notas por sesión',
-  'notes.endless': 'Sin fin',
-  'notes.play': 'Toca esta nota',
-  'notes.was': 'Era {note}',
-  'notes.played': 'Has tocado {note}',
-  'notes.summary': 'Resumen de la sesión',
-  'notes.missed': 'Notas falladas',
-  'notes.noMisses': 'Ninguna. Sube la dificultad cuando quieras.',
-  'notes.again': 'Otra sesión',
-  'notes.progress': '{n} de {total}',
-  'notes.settings': 'Opciones'
-});
-
-addStrings('en', {
-  'notes.title': 'Note reading',
-  'notes.lead': 'A note appears on the staff: play it. The ones you miss or read slowly come back more often.',
-  'notes.clef': 'Clef',
-  'notes.mixed': 'Mixed',
-  'notes.below': 'Ledger lines below',
-  'notes.above': 'Ledger lines above',
-  'notes.accidentals': 'Include sharps and flats',
-  'notes.key': 'Key signature',
-  'notes.keyNone': 'None',
-  'notes.keyRandom': 'Random',
-  'notes.strict': 'Require the exact octave',
-  'notes.length': 'Notes per session',
-  'notes.endless': 'Endless',
-  'notes.play': 'Play this note',
-  'notes.was': 'It was {note}',
-  'notes.played': 'You played {note}',
-  'notes.summary': 'Session summary',
-  'notes.missed': 'Missed notes',
-  'notes.noMisses': 'None. Raise the difficulty whenever you like.',
-  'notes.again': 'New session',
-  'notes.progress': '{n} of {total}',
-  'notes.settings': 'Options'
-});
-
 const CONFIG_KEY = 'doremifaaa.notes.config';
 const SLOW_MS = 2500;
 
@@ -86,7 +36,7 @@ interface Result {
 type Phase = 'idle' | 'play' | 'summary';
 
 export function NoteTrainer() {
-  const t = useT();
+  const { t, percent, seconds } = useI18n();
   const { naming, feedbackSounds } = useStore(settings);
   const [cfg, setCfg] = useState<NoteConfig>({ ...DEFAULT_NOTE_CONFIG, ...load<Partial<NoteConfig>>(CONFIG_KEY, {}) });
   const [phase, setPhase] = useState<Phase>('idle');
@@ -185,7 +135,7 @@ export function NoteTrainer() {
   }, [item, flash, misses]);
 
   const correct = results.filter((r) => r.ok).length;
-  const avg = results.length ? results.reduce((a, r) => a + r.ms, 0) / results.length / 1000 : 0;
+  const avg = results.length ? results.reduce((a, r) => a + r.ms, 0) / results.length : 0;
   const range = keyboardRange(cfg.clef);
   const missed = results.filter((r) => !r.ok);
 
@@ -205,11 +155,11 @@ export function NoteTrainer() {
                 <h2>{t('notes.summary')}</h2>
                 <div class="stat-row">
                   <div class="stat">
-                    <strong>{results.length ? Math.round((correct / results.length) * 100) : 0}%</strong>
+                    <strong>{percent(results.length ? correct / results.length : 0)}</strong>
                     <span>{t('common.accuracy')}</span>
                   </div>
                   <div class="stat">
-                    <strong>{avg.toFixed(1)} s</strong>
+                    <strong>{seconds(avg)}</strong>
                     <span>{t('common.time')}</span>
                   </div>
                 </div>
@@ -268,7 +218,7 @@ export function NoteTrainer() {
                 <span>&nbsp;</span>
               </div>
               <div class="stat">
-                <strong>{results.length ? Math.round((correct / results.length) * 100) : 0}%</strong>
+                <strong>{percent(results.length ? correct / results.length : 0)}</strong>
                 <span>{t('common.accuracy')}</span>
               </div>
             </div>
