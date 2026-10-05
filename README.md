@@ -72,6 +72,18 @@ Browsers only expose Web MIDI on HTTPS or `localhost`, so a plain `http://192.16
 2. Put it behind your reverse proxy with a certificate, or `tailscale serve --bg --https=443 http://<host>:8095` once HTTPS certificates are enabled in the tailnet.
 3. Use the public app and point Settings › Repertoire server to the HTTPS URL of your server (it needs CORS, see `ALLOWED_ORIGINS`).
 
+## Converting PDFs to MusicXML
+
+`tools/audiveris/` packages [Audiveris](https://github.com/Audiveris/audiveris) (optical music recognition) in a Docker image that converts a folder of PDFs in one go. Each page is first rasterised to A4 at 300 dpi, because some PDFs exported from score editors have huge page sizes that Audiveris refuses to load.
+
+```bash
+docker build -t audiveris tools/audiveris
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/pdfs:/in:ro" -v "$PWD/out:/out" audiveris
+node tools/audiveris/check.mjs out/*.mxl
+```
+
+`check.mjs` lists the measures whose voices don't add up to the time signature and the measures where a staff has no notes, which is where OMR usually goes wrong. Fix those in MuseScore before practising with the score. Drop the resulting `.mxl` next to the note in your vault (same name) and the repertoire picks it up.
+
 ## Development
 
 ```bash
