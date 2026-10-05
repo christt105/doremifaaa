@@ -56,11 +56,12 @@ services:
 | --- | --- | --- |
 | `VAULT_DIR` | `/vault` | Folder to scan (mounted read-only) |
 | `LIBRARY_DIRS` | whole vault | Comma separated subfolders to limit the scan |
+| `EXCLUDE_DIRS` | `Templates` | Comma separated subfolders to skip. Notes with Templater or `{{...}}` placeholders are skipped too |
 | `NOTE_TYPE` | `partitura` | Frontmatter `type` that marks a piece |
 | `SCAN_TTL_SECONDS` | `60` | How long a scan is cached |
 | `LIBRARY_NAME` | | Name shown above the list |
 | `OBSIDIAN_VAULT` | | Vault name, enables "open note" links (`obsidian://`) |
-| `PAPERLESS_URL` | | Paperless-ngx base URL. Proxied links must point to this origin |
+| `PAPERLESS_URL` | | Paperless-ngx base URL. Link stubs are only proxied when they point to this origin |
 | `PAPERLESS_TOKEN` | | Optional API token to fetch documents by `paperless_id` |
 | `ALLOWED_ORIGINS` | `https://christt105.github.io` | Origins allowed to call the API (CORS), so the public app can use your library when it is served over HTTPS |
 

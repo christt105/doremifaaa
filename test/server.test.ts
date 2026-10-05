@@ -60,3 +60,14 @@ describe('vault scan', () => {
     expect((await sniff(join(root, 'Piano/Partituras/_pdf/Wind.pdf'))).kind).toBe('pdf');
   });
 });
+
+describe('vault exclusions', () => {
+  it('skips the templates folder and notes with template placeholders', async () => {
+    write('Templates/Partitura.md', '---\ntype: partitura\ntitulo: "<% tp.file.title %>"\n---\n');
+    write('Piano/Partituras/Draft.md', '---\ntype: partitura\ntitulo: "{{title}}"\n---\n');
+    const { pieces } = await new Vault({ root }).get();
+    expect(pieces.map((p: { id: string }) => p.id)).toEqual(['Blue Bird', 'Route 201', 'Wind']);
+    const all = await new Vault({ root, exclude: [] }).get();
+    expect(all.pieces).toHaveLength(3);
+  });
+});
