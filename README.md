@@ -74,7 +74,7 @@ Browsers only expose Web MIDI on HTTPS or `localhost`, so a plain `http://192.16
 
 ## Converting PDFs to MusicXML
 
-`tools/audiveris/` packages [Audiveris](https://github.com/Audiveris/audiveris) (optical music recognition) in a Docker image that converts a folder of PDFs in one go. Each page is first rasterised to A4 at 300 dpi, because some PDFs exported from score editors have huge page sizes that Audiveris refuses to load.
+`tools/audiveris/` packages [Audiveris](https://github.com/Audiveris/audiveris) (optical music recognition) in a Docker image that converts a folder of PDFs in one go. Each page is first rasterised to A4 at 300 dpi, because some PDFs exported from score editors have huge page sizes that Audiveris refuses to load. Before that, `clean_pdf.py` strips vector PDFs exported from score editors down to the music: noteheads with the note name written inside become plain noteheads, and fingerings, chord symbols, titles and images are removed. Scanned PDFs are left as they are.
 
 ```bash
 docker build -t audiveris tools/audiveris
