@@ -3,11 +3,13 @@ import { useT } from '../i18n';
 import { getPiece, putFile } from '../lib/api';
 import { EDIT_TYPES, deltaLabel, defaultPitch, isBad, newVoiceFor, nextBad, rhythmLabel, stepBy, toSpelled } from '../lib/editor';
 import { fetchLibrary, libraryUrl, type ServerPiece } from '../lib/library';
+import { bus } from '../lib/input/bus';
 import { checkMeasures, firstPart, measureContext, partMeasures } from '../lib/measurecheck';
+import { planEntry, spellMidi } from '../lib/midientry';
 import { noteName } from '../lib/music';
 import { readScoreXml } from '../lib/mxl';
 import { createOsmd, type Osmd } from '../lib/osmd';
-import { addChordNote, deleteNote, fillWithRest, insertNote, listNotes, parseScore, serialize, setAlter, setPitch, setRhythm, toRest, type NoteInfo } from '../lib/scoreedit';
+import { addChordNote, deleteNote, fillWithRest, insertNote, listNotes, parseScore, serialize, setAlter, setPitch, setRhythm, toRest, type NoteInfo, type NoteType } from '../lib/scoreedit';
 import { settings } from '../lib/settings';
 import { useStore } from '../lib/store';
 import { href, type ViewProps } from '../router';
@@ -37,6 +39,17 @@ export function Editor({ route }: ViewProps) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const osmd = useRef<Osmd | null>(null);
+  const [entry, setEntry] = useState(false);
+  const [entryRhythm, setEntryRhythm] = useState<{ type: NoteType; dots: number }>({ type: 'quarter', dots: 0 });
+  const live = useRef<{ enter: (midi: number | null) => void } | null>(null);
+  const last = useRef<{ handle: number | null; at: number }>({ handle: null, at: 0 });
+
+  useEffect(() => {
+    if (!entry) return;
+    return bus.onNote((e) => {
+      if (e.type === 'on') live.current?.enter(e.midi);
+    });
+  }, [entry]);
 
   useEffect(() => {
     void (async () => {
@@ -119,6 +132,21 @@ export function Editor({ route }: ViewProps) {
     if (i === null || i < 0 || i >= measures.length) return;
     setIndex(i);
     setHandle(null);
+    last.current = { handle: null, at: 0 };
+  };
+
+  live.current = {
+    enter(midi) {
+      const now = performance.now();
+      const staves = [...new Set([...voices.map((v) => v.staff), ...check.emptyStaves])];
+      const plan = planEntry({ voices, staves: staves.length ? staves : [1], selected: handle, lastInserted: midi === null ? null : last.current.handle, lastAt: last.current.at, now, midi: midi ?? 60 });
+      const pitch = midi === null ? undefined : spellMidi(midi, measureContext(measure).fifths);
+      apply(() => {
+        const h = plan.kind === 'chord' && pitch ? addChordNote(measure, plan.target!, pitch) : insertNote(measure, plan.at!, { ...entryRhythm, pitch });
+        last.current = { handle: h, at: now };
+        return h;
+      });
+    }
   };
 
   const save = async () => {
@@ -200,6 +228,33 @@ export function Editor({ route }: ViewProps) {
       </div>
 
       <div class="card editor-preview" ref={host} />
+
+      <section class="card stack editor-entry">
+        <div class="row spread wrap">
+          <strong>{t('editor.entry')}</strong>
+          <button class={entry ? 'primary' : ''} onClick={() => setEntry(!entry)}>
+            {entry ? t('editor.entryOn') : t('editor.entryOff')}
+          </button>
+        </div>
+        {entry && (
+          <>
+            <div class="row wrap">
+              {EDIT_TYPES.map((type) => (
+                <button key={type} class={entryRhythm.type === type ? 'selected' : ''} onClick={() => setEntryRhythm({ ...entryRhythm, type })}>
+                  {rhythmLabel(type, 0)}
+                </button>
+              ))}
+              <button class={entryRhythm.dots ? 'selected' : ''} onClick={() => setEntryRhythm({ ...entryRhythm, dots: entryRhythm.dots ? 0 : 1 })}>
+                {t('editor.dot')}
+              </button>
+              <button onClick={() => live.current?.enter(null)}>+ {t('editor.rest')}</button>
+            </div>
+            <p class="muted small" style={{ margin: 0 }}>
+              {t('editor.entryHint')}
+            </p>
+          </>
+        )}
+      </section>
 
       <section class="card stack">
         <p class="small" style={{ margin: 0 }}>

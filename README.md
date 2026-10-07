@@ -159,6 +159,8 @@ node tools/audiveris/check.mjs out/*.mxl
 
 Piece › "Fix measures" opens a measure corrector for any score in the store. It lists the measures that do not add up or have an empty staff (the same checks as above), shows each measure with its neighbours, and lets you change a note's length, dot and accidental, move it up or down, turn notes into rests and back, add notes, rests, chord notes or a voice, delete notes, or fill a short voice with rests. Later voices keep their place when an earlier one changes. Saving keeps the version you started from as the piece's original score.
 
+"Enter notes from the piano" adds what you play on a MIDI keyboard (or the on-screen or computer keyboard) after the selected note, with the length chosen on screen. With nothing selected, notes go to the end of the upper or lower staff depending on their pitch, and notes played together become a chord. Black keys are spelled with flats in flat keys and with sharps otherwise.
+
 ### Automatic conversion
 
 With a store, the same image can run next to the server as a worker, so a PDF uploaded without a score is converted on its own. The server stays small: the worker (Java, about 500 MB) is a separate container that shares the data folder.
