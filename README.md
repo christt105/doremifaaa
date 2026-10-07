@@ -117,6 +117,17 @@ curl -X PUT -H "$AUTH" --data-binary @minuet-fixed.mxl "$SERVER/api/pieces/<id>/
 curl -X DELETE -H "$AUTH" "$SERVER/api/pieces/<id>"
 ```
 
+### Syncing settings and progress
+
+With a store, settings, statistics and spaced repetition progress are kept on the server too, so every device that uses it shares them. The app syncs when it starts, when it gets focus and a couple of seconds after a change. Progress is merged item by item, so practising on two devices never loses answers; other values keep the newest change. The server address, the write token, the MIDI input and the microphone switch stay on each device.
+
+To set up a device, open Settings › Server and enter the server address, or open a setup link such as `https://christt105.github.io/doremifaaa/#/?server=http://192.168.1.15:8095` ("Copy setup link" in Settings builds it). Devices with the same profile (`default` unless you change it) share data, so several people can use one server with a profile each. Without a server, or with a server without a store, everything stays in the browser as before.
+
+| Request | What it does |
+| --- | --- |
+| `GET /api/sync/<profile>` | Every synced value with its time |
+| `POST /api/sync/<profile>` | `{ "entries": { "<key>": { "value": ..., "updatedAt": <ms> } } }`, the newer time wins per key. A write, so the origin and token checks apply |
+
 ### HTTPS for Web MIDI
 
 Browsers only expose Web MIDI on HTTPS or `localhost`, so a plain `http://192.168.x.x:8095` works for reading and PDFs but not for MIDI. Options, from quickest to cleanest:

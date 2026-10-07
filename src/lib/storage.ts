@@ -8,12 +8,20 @@ export function load<T>(key: string, fallback: T): T {
   }
 }
 
+const saveListeners = new Set<(key: string) => void>();
+
+export function onSave(listener: (key: string) => void): () => void {
+  saveListeners.add(listener);
+  return () => saveListeners.delete(listener);
+}
+
 export function save(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
     return;
   }
+  saveListeners.forEach((l) => l(key));
 }
 
 export function remove(key: string): void {
