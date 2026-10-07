@@ -12,6 +12,8 @@ import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
 import { href, type ViewProps } from '../router';
+import { issueMeasures } from '../components/QualityBadge';
+import { findServerPiece, type ServerPiece } from '../lib/library';
 
 const PREFS = 'doremifaaa.player';
 
@@ -39,6 +41,15 @@ export function Player({ route }: ViewProps) {
   const [loop, setLoop] = useState<{ from: number; to: number } | null>(null);
   const [loopInput, setLoopInput] = useState({ from: 1, to: 1 });
   const [lastWrong, setLastWrong] = useState<number | null>(null);
+  const [server, setServer] = useState<ServerPiece | null>(null);
+  const [hideQuality, setHideQuality] = useState(false);
+
+  useEffect(() => {
+    setServer(null);
+    setHideQuality(false);
+    if (source === 'server') void findServerPiece(id).then(setServer);
+  }, [source, id]);
+  const issues = server ? issueMeasures(server) : [];
   const host = useRef<HTMLDivElement>(null);
   const osmd = useRef<Osmd | null>(null);
   const follower = useRef<Follower | null>(null);
@@ -188,6 +199,17 @@ export function Player({ route }: ViewProps) {
           </div>
         )}
       </div>
+
+      {issues.length > 0 && !hideQuality && server?.quality && (
+        <div class="card notice row spread wrap">
+          <span class="small">
+            {t(server.scoreOrigin === 'omr' ? 'omr.noticeConverted' : 'omr.notice', { n: issues.length, total: server.quality.measures, list: issues.slice(0, 8).join(', ') })}
+          </span>
+          <button class="ghost small" onClick={() => setHideQuality(true)}>
+            {t('omr.dismiss')}
+          </button>
+        </div>
+      )}
 
       <div class="card toolbar row wrap">
         <Segmented<Hand>

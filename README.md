@@ -70,6 +70,9 @@ services:
 | `DATA_DIR` | `/data` | Folder of the score store (database and files). Unset outside Docker, which disables the store |
 | `WRITE_TOKEN` | | If set, every write needs `Authorization: Bearer <token>` |
 | `MAX_UPLOAD_MB` | `50` | Largest file accepted by the store |
+| `OMR` | | `1` converts uploaded PDFs to MusicXML with the Audiveris worker (see [Automatic conversion](#automatic-conversion)) |
+| `OMR_DIR` | `DATA_DIR/omr` | Job folder shared with the worker |
+| `OMR_POLL_SECONDS` | `10` | How often the server picks up finished jobs |
 
 ### Score store
 
@@ -151,6 +154,33 @@ node tools/audiveris/check.mjs out/*.mxl
 ```
 
 `check.mjs` lists the measures whose voices don't add up to the time signature and the measures where a staff has no notes, which is where OMR usually goes wrong. Fix those in MuseScore before practising with the score. Drop the resulting `.mxl` next to the note in your vault (same name) and the repertoire picks it up.
+
+### Automatic conversion
+
+With a store, the same image can run next to the server as a worker, so a PDF uploaded without a score is converted on its own. The server stays small: the worker (Java, about 500 MB) is a separate container that shares the data folder.
+
+```yaml
+services:
+  doremifaaa:
+    # ... as above, plus:
+    environment:
+      OMR: "1"
+    volumes:
+      - ./data:/data
+  omr:
+    build: https://github.com/christt105/doremifaaa.git#main:tools/audiveris
+    container_name: doremifaaa-omr
+    restart: unless-stopped
+    user: "1000:1000"
+    network_mode: none
+    entrypoint: ["/usr/local/bin/omr-watch.sh"]
+    environment:
+      OMR_DIR: /data/omr
+    volumes:
+      - ./data:/data
+```
+
+The two talk through files in `OMR_DIR`: the server drops `queue/<id>.pdf`, the worker moves it to `work/`, converts it (about 40 s per piece on a small machine) and leaves `done/<id>.mxl` or `failed/<id>.log`, which the server picks up. The result becomes the piece's score (an existing score is never replaced), and every score in the store, uploaded or converted, gets the same checks as `check.mjs`: the library shows how many measures need a look and the player names them. A job that stays in `work/` for 30 minutes is reported as failed. "Retry" in the library, or `POST /api/pieces/<id>/convert`, queues a piece again.
 
 ## Development
 
