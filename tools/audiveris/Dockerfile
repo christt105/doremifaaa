@@ -9,6 +9,6 @@ RUN apt-get update \
  && dpkg --configure -a \
  && test -x /opt/audiveris/bin/Audiveris \
  && rm -rf /var/lib/apt/lists/* /tmp/audiveris.deb
-COPY omr.sh clean_pdf.py /usr/local/bin/
+COPY omr.sh omr-lib.sh omr-watch.sh clean_pdf.py /usr/local/bin/
 WORKDIR /work
 ENTRYPOINT ["/usr/local/bin/omr.sh"]
