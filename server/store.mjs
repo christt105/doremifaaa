@@ -40,7 +40,8 @@ export const MIGRATIONS = [
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (profile, key)
-  );`
+  );`,
+  `ALTER TABLE pieces ADD COLUMN note_path TEXT;`
 ];
 
 export class StoreError extends Error {
@@ -135,6 +136,7 @@ function toPiece(row) {
     notes: row.notes,
     origin: row.origin,
     originRef: row.origin_ref,
+    notePath: row.note_path ?? null,
     scoreFormat: row.score_format,
     hasPdf: Boolean(row.has_pdf),
     originalFormat: row.original_format,
@@ -180,7 +182,7 @@ export class Store {
     return new Set(this.db.prepare('SELECT origin_ref FROM pieces WHERE origin = ? AND origin_ref IS NOT NULL').all(origin).map((r) => r.origin_ref));
   }
 
-  create({ origin = 'upload', originRef = null, ...meta }) {
+  create({ origin = 'upload', originRef = null, notePath = null, ...meta }) {
     if (!ORIGINS.includes(origin)) throw new StoreError(400, `unknown origin ${origin}`);
     const fields = validatePatch(meta);
     if (!fields.title) throw new StoreError(400, 'title is required');
@@ -190,8 +192,8 @@ export class Store {
     const cols = Object.keys(fields).map((k) => (k === 'tags' ? 'tags' : TEXT_FIELDS[k]));
     const values = Object.values(fields).map((v) => (Array.isArray(v) ? JSON.stringify(v) : v));
     this.db
-      .prepare(`INSERT INTO pieces (id, origin, origin_ref, created_at, updated_at, ${cols.join(', ')}) VALUES (?, ?, ?, ?, ?, ${cols.map(() => '?').join(', ')})`)
-      .run(id, origin, originRef === null ? null : String(originRef), now, now, ...values);
+      .prepare(`INSERT INTO pieces (id, origin, origin_ref, note_path, created_at, updated_at, ${cols.join(', ')}) VALUES (?, ?, ?, ?, ?, ?, ${cols.map(() => '?').join(', ')})`)
+      .run(id, origin, originRef === null ? null : String(originRef), notePath === null ? null : String(notePath), now, now, ...values);
     return this.get(id);
   }
 
