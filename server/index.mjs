@@ -8,6 +8,7 @@ import { writeDenied } from './guard.mjs';
 import { Store, StoreError, isPieceId } from './store.mjs';
 import { mergeSync, readSync } from './sync.mjs';
 import { Importer } from './importer.mjs';
+import { Omr } from './omr.mjs';
 import { Vault, sniff } from './vault.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -31,7 +32,10 @@ export function loadConfig(env = process.env) {
     allowedOrigins: list(env.ALLOWED_ORIGINS ?? 'https://christt105.github.io'),
     dataDir: env.DATA_DIR ?? '',
     writeToken: env.WRITE_TOKEN ?? '',
-    maxUploadBytes: positive(env.MAX_UPLOAD_MB ?? 50, 50) * 1024 * 1024
+    maxUploadBytes: positive(env.MAX_UPLOAD_MB ?? 50, 50) * 1024 * 1024,
+    omr: env.OMR === '1' || env.OMR === 'true',
+    omrDir: env.OMR_DIR ?? '',
+    omrPollMs: positive(env.OMR_POLL_SECONDS ?? 10, 10) * 1000
   };
 }
 
@@ -110,6 +114,24 @@ export function createApp(config) {
     }
   }
 
+  let omr = null;
+  let omrTimer = null;
+  if (store && config.omr) {
+    try {
+      omr = new Omr({ store, dir: config.omrDir || join(config.dataDir, 'omr') });
+      void omr.poll();
+      omrTimer = setInterval(() => void omr.poll(), config.omrPollMs);
+      omrTimer.unref();
+    } catch (e) {
+      console.error(`omr disabled: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
+  async function autoConvert(piece) {
+    if (omr && omr.shouldConvert(piece)) return omr.enqueue(piece.id);
+    return piece;
+  }
+
   function cors(req, res) {
     const origin = req.headers.origin;
     res.setHeader('Vary', 'Origin');
@@ -147,6 +169,9 @@ export function createApp(config) {
       originRef: null,
       editable: false,
       hasOriginal: false,
+      scoreOrigin: p.hasScore ? 'vault' : null,
+      quality: null,
+      omr: null,
       scoreUrl: p.hasScore ? `api/pieces/${enc}/score` : null,
       scoreFormat: scoreFile ? extname(scoreFile).slice(1).toLowerCase() : null,
       pdfUrl: p.hasPdf ? `api/pieces/${enc}/pdf` : null,
@@ -184,6 +209,9 @@ export function createApp(config) {
       scoreFormat: p.scoreFormat,
       pdfUrl: p.hasPdf ? url('pdf') : null,
       originalUrl: p.originalFormat ? url('original') : null,
+      scoreOrigin: p.scoreOrigin,
+      quality: p.quality,
+      omr: p.omr,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt
     };
@@ -247,7 +275,7 @@ export function createApp(config) {
     if (path === '/api/health') {
       if (method !== 'GET') return json(res, 405, { error: 'method not allowed' });
       const pieces = vault || store ? (await library()).pieces.length : 0;
-      return json(res, 200, { ok: true, vault: Boolean(vault), pieces, store: Boolean(store), ...(storeError ? { storeError } : {}), auth: Boolean(config.writeToken) });
+      return json(res, 200, { ok: true, vault: Boolean(vault), pieces, store: Boolean(store), ...(storeError ? { storeError } : {}), auth: Boolean(config.writeToken), omr: Boolean(omr) });
     }
     const sync = /^\/api\/sync\/([^/]+)$/.exec(path);
     if (sync) {
@@ -272,15 +300,15 @@ export function createApp(config) {
     if (path === '/api/library') {
       if (method !== 'GET') return json(res, 405, { error: 'method not allowed' });
       const { pieces, scannedAt } = await library(url.searchParams.has('refresh'));
-      return json(res, 200, { name: config.libraryName, scannedAt, store: { enabled: Boolean(store), auth: Boolean(config.writeToken) }, pieces });
+      return json(res, 200, { name: config.libraryName, scannedAt, store: { enabled: Boolean(store), auth: Boolean(config.writeToken), omr: Boolean(omr) }, pieces });
     }
-    const m = /^\/api\/pieces(?:\/([^/]+)(?:\/(score|pdf|original))?)?$/.exec(path);
+    const m = /^\/api\/pieces(?:\/([^/]+)(?:\/(score|pdf|original|convert))?)?$/.exec(path);
     if (!m) return json(res, 404, { error: 'not found' });
     const [, rawId, slot] = m;
     if (!rawId) {
       if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
       const piece = await store.upload(req, { name: url.searchParams.get('name'), title: url.searchParams.get('title'), size: req.headers['content-length'] });
-      return json(res, 201, storePiece(piece));
+      return json(res, 201, storePiece(await autoConvert(piece)));
     }
     const id = decodeURIComponent(rawId);
     if (method === 'GET') {
@@ -296,7 +324,14 @@ export function createApp(config) {
     if (method === 'PUT' && (slot === 'score' || slot === 'pdf')) {
       if (!(await writable(res, id))) return;
       const staged = await store.stage(req, req.headers['content-length']);
-      return json(res, 200, storePiece(await store.putFile(id, slot, staged, { keepOriginal: url.searchParams.get('keepOriginal') === '1' })));
+      const piece = await store.putFile(id, slot, staged, { keepOriginal: url.searchParams.get('keepOriginal') === '1' });
+      return json(res, 200, storePiece(slot === 'pdf' ? await autoConvert(piece) : piece));
+    }
+    if (method === 'POST' && slot === 'convert') {
+      if (!(await writable(res, id))) return;
+      if (!omr) return json(res, 404, { error: 'conversion disabled' });
+      if (!store.get(id).hasPdf) return json(res, 409, { error: 'no pdf' });
+      return json(res, 202, storePiece(await omr.enqueue(id)));
     }
     if (method === 'DELETE') {
       if (!(await writable(res, id))) return;
@@ -354,7 +389,10 @@ export function createApp(config) {
       else res.end();
     }
   });
-  server.on('close', () => store?.close());
+  server.on('close', () => {
+    clearInterval(omrTimer);
+    store?.close();
+  });
   return server;
 }
 
