@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
-import { addStrings, useT } from '../i18n';
+import { useT } from '../i18n';
 import { findServerPiece } from '../lib/library';
 import { href, type ViewProps } from '../router';
-
-addStrings('es', { 'piece.notFound': 'No encuentro «{id}» en tu repertorio.' });
-addStrings('en', { 'piece.notFound': 'Could not find “{id}” in your repertoire.' });
 
 export function PieceLink({ route }: ViewProps) {
   const t = useT();

@@ -2,8 +2,9 @@ import { useRef, useState } from 'preact/hooks';
 import { useT } from '../i18n';
 import { micStatus, startMic, stopMic } from '../lib/input/mic';
 import { midiStatus } from '../lib/input/midi';
+import { LANGUAGES } from '../lib/locales';
 import type { Naming } from '../lib/music';
-import { settings, updateSettings, type Lang } from '../lib/settings';
+import { settings, updateSettings } from '../lib/settings';
 import { useStore } from '../lib/store';
 
 const PREFIX = 'doremifaaa.';
@@ -72,9 +73,12 @@ export function SettingsView() {
       <section class="card form">
         <label>
           <span>{t('settings.lang')}</span>
-          <select value={s.lang} onChange={(e) => updateSettings({ lang: e.currentTarget.value as Lang })}>
-            <option value="es">Español</option>
-            <option value="en">English</option>
+          <select value={s.lang} onChange={(e) => updateSettings({ lang: e.currentTarget.value })}>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code} lang={l.code}>
+                {l.meta.name}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -82,7 +86,9 @@ export function SettingsView() {
           <select value={s.naming} onChange={(e) => updateSettings({ naming: e.currentTarget.value as Naming })}>
             <option value="solfege">{t('settings.naming.solfege')}</option>
             <option value="letters">{t('settings.naming.letters')}</option>
+            <option value="german">{t('settings.naming.german')}</option>
           </select>
+          {s.naming === 'german' && <small class="muted">{t('settings.namingHint')}</small>}
         </label>
         <label>
           <span>{t('settings.midiInput')}</span>

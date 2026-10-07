@@ -89,9 +89,10 @@ describe('key signature questions', () => {
   });
 
   it('gives the classic recognition tips', () => {
-    expect(keyHint(keyQuestion('3:major').key, 'letters')).toEqual({ rule: 'sharps', note: 'G♯' });
-    expect(keyHint(keyQuestion('-4:major').key, 'letters')).toEqual({ rule: 'flats', note: 'A♭' });
-    expect(keyHint(keyQuestion('-1:major').key, 'letters').rule).toBe('oneFlat');
+    expect(keyHint(keyQuestion('3:major').key, 'letters')).toEqual({ rule: 'sharps', note: 'G♯', major: 'A', minor: 'F♯' });
+    expect(keyHint(keyQuestion('-4:major').key, 'letters')).toEqual({ rule: 'flats', note: 'A♭', major: 'A♭', minor: 'F' });
+    expect(keyHint(keyQuestion('-1:major').key, 'letters')).toEqual({ rule: 'oneFlat', note: 'B♭', major: 'F', minor: 'D' });
+    expect(keyHint(keyQuestion('0:major').key, 'solfege')).toEqual({ rule: 'none', note: '', major: 'Do', minor: 'La' });
   });
 });
 

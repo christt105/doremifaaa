@@ -1,5 +1,6 @@
 export type Clef = 'treble' | 'bass';
-export type Naming = 'solfege' | 'letters';
+export const NAMINGS = ['solfege', 'letters', 'german'] as const;
+export type Naming = (typeof NAMINGS)[number];
 export type Accidental = -2 | -1 | 0 | 1 | 2;
 
 export interface Spelled {
@@ -62,9 +63,16 @@ export function accidentalVex(acc: number): string {
   return ACC_VEX[acc] ?? '';
 }
 
+function germanName(s: Spelled): string {
+  if (s.letter !== 6) return LETTERS[s.letter] + accidentalText(s.acc);
+  if (s.acc === -1) return 'B';
+  if (s.acc === -2) return 'B♭';
+  return 'H' + accidentalText(s.acc);
+}
+
 export function noteName(s: Spelled, naming: Naming, withOctave = false): string {
-  const base = naming === 'solfege' ? SOLFEGE[s.letter] : LETTERS[s.letter];
-  return base + accidentalText(s.acc) + (withOctave ? String(s.octave) : '');
+  const base = naming === 'german' ? germanName(s) : (naming === 'solfege' ? SOLFEGE[s.letter] : LETTERS[s.letter]) + accidentalText(s.acc);
+  return base + (withOctave ? String(s.octave) : '');
 }
 
 export function midiName(midi: number, naming: Naming, withOctave = true, preferFlats = false): string {
