@@ -46,13 +46,18 @@ export function keyLabel(k: KeySignature, quality: 'major' | 'minor', naming: Na
   return noteName(quality === 'major' ? k.major : k.minor, naming) + (quality === 'minor' ? 'm' : '');
 }
 
-export function keyHint(k: KeySignature, naming: Naming): { rule: 'none' | 'sharps' | 'flats' | 'oneFlat'; note: string } {
-  if (k.fifths === 0) return { rule: 'none', note: '' };
+export interface KeyHint {
+  rule: 'none' | 'sharps' | 'flats' | 'oneFlat';
+  note: string;
+  major: string;
+  minor: string;
+}
+
+export function keyHint(k: KeySignature, naming: Naming): KeyHint {
+  const names = { major: noteName(k.major, naming), minor: noteName(k.minor, naming) };
+  if (k.fifths === 0) return { rule: 'none', note: '', ...names };
   const letters = alteredLetters(k.fifths);
-  if (k.fifths > 0) {
-    const last = letters[letters.length - 1];
-    return { rule: 'sharps', note: noteName({ letter: last, acc: 1, octave: 4 }, naming) };
-  }
-  if (k.fifths === -1) return { rule: 'oneFlat', note: '' };
-  return { rule: 'flats', note: noteName({ letter: letters[letters.length - 2], acc: -1, octave: 4 }, naming) };
+  if (k.fifths > 0) return { rule: 'sharps', note: noteName({ letter: letters[letters.length - 1], acc: 1, octave: 4 }, naming), ...names };
+  if (k.fifths === -1) return { rule: 'oneFlat', note: noteName({ letter: letters[0], acc: -1, octave: 4 }, naming), ...names };
+  return { rule: 'flats', note: noteName({ letter: letters[letters.length - 2], acc: -1, octave: 4 }, naming), ...names };
 }

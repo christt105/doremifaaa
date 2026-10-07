@@ -16,6 +16,8 @@ Piano sight-reading trainer that runs in the browser. Plug a digital piano or MI
 
 Your own scores can be added from the Repertoire page and are stored in the browser (IndexedDB). Three public domain samples are bundled.
 
+The app is available in English and Spanish and picks your browser's language. Adding another language only takes a JSON file: see [Adding a language](CONTRIBUTING.md#adding-a-language).
+
 ## Input options
 
 | Input | Where it works |

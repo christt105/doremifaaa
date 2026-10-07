@@ -1,29 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { addStrings, useT } from '../i18n';
+import { useT } from '../i18n';
 import { bus } from '../lib/input/bus';
 import { loadPdf } from '../lib/sources';
 import { load, save } from '../lib/storage';
 import { href, type ViewProps } from '../router';
-
-addStrings('es', {
-  'pdf.loading': 'Cargando PDF…',
-  'pdf.error': 'No se ha podido abrir el PDF.',
-  'pdf.pages': '{n} páginas',
-  'pdf.pedal': 'Pasar página con el pedal',
-  'pdf.pedalHint': 'Pedal derecho, flechas, AvPág o espacio: baja una pantalla. Flecha arriba o RePág: sube.',
-  'pdf.fullscreen': 'Pantalla completa',
-  'pdf.noFollow': 'En PDF no hay seguimiento de notas: para eso hace falta la partitura en MusicXML.'
-});
-
-addStrings('en', {
-  'pdf.loading': 'Loading PDF…',
-  'pdf.error': 'Could not open the PDF.',
-  'pdf.pages': '{n} pages',
-  'pdf.pedal': 'Turn pages with the pedal',
-  'pdf.pedalHint': 'Sustain pedal, arrows, Page Down or space: scroll down one screen. Arrow up or Page Up: scroll up.',
-  'pdf.fullscreen': 'Full screen',
-  'pdf.noFollow': 'PDFs have no note following: that needs the score in MusicXML.'
-});
 
 const PREFS = 'doremifaaa.pdf';
 

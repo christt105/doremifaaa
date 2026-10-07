@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { PianoKeyboard, type KeyMark } from '../components/PianoKeyboard';
 import { Segmented } from '../components/Segmented';
-import { addStrings, useT } from '../i18n';
+import { useT } from '../i18n';
 import { Follower, expectedNotes, type Hand } from '../lib/follower';
 import { bus } from '../lib/input/bus';
 import { colorUnderCursor, createOsmd, extractSteps, moveCursor, type Osmd } from '../lib/osmd';
@@ -12,54 +12,6 @@ import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
 import { href, type ViewProps } from '../router';
-
-addStrings('es', {
-  'player.loading': 'Cargando partitura…',
-  'player.error': 'No se ha podido abrir la partitura.',
-  'player.notFound': 'Esta partitura ya no está disponible. Vuelve al repertorio y ábrela de nuevo.',
-  'player.hands': 'Manos',
-  'player.both': 'Las dos',
-  'player.right': 'Derecha',
-  'player.left': 'Izquierda',
-  'player.zoom': 'Tamaño',
-  'player.loop': 'Repetir compases',
-  'player.loopFrom': 'Desde',
-  'player.loopTo': 'hasta',
-  'player.loopOff': 'Quitar repetición',
-  'player.restart': 'Volver al principio',
-  'player.hint': 'Mostrar en el teclado las notas que tocan',
-  'player.measure': 'Compás {n} de {total}',
-  'player.wrongs': '{n} fallos',
-  'player.waiting': 'Esperando: {notes}',
-  'player.done': '¡Terminada! {n} fallos en {time}.',
-  'player.worst': 'Compases con más fallos',
-  'player.practise': 'Practicar {n}',
-  'player.back': 'Repertorio'
-});
-
-addStrings('en', {
-  'player.loading': 'Loading score…',
-  'player.error': 'Could not open the score.',
-  'player.notFound': 'This score is no longer available. Go back to the repertoire and open it again.',
-  'player.hands': 'Hands',
-  'player.both': 'Both',
-  'player.right': 'Right',
-  'player.left': 'Left',
-  'player.zoom': 'Size',
-  'player.loop': 'Loop measures',
-  'player.loopFrom': 'From',
-  'player.loopTo': 'to',
-  'player.loopOff': 'Stop looping',
-  'player.restart': 'Back to start',
-  'player.hint': 'Show the notes to play on the keyboard',
-  'player.measure': 'Measure {n} of {total}',
-  'player.wrongs': '{n} mistakes',
-  'player.waiting': 'Waiting for: {notes}',
-  'player.done': 'Finished! {n} mistakes in {time}.',
-  'player.worst': 'Measures with most mistakes',
-  'player.practise': 'Practise {n}',
-  'player.back': 'Repertoire'
-});
 
 const PREFS = 'doremifaaa.player';
 

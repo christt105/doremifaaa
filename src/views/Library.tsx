@@ -1,79 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { addStrings, useT } from '../i18n';
+import { hasKey, useT } from '../i18n';
 import { STATUS_ORDER, fetchLibrary, type ServerLibrary, type ServerPiece } from '../lib/library';
 import { deleteLocal, listLocal, type LocalPiece } from '../lib/localdb';
 import { FILE_ACCEPT, importFile, listSamples, type Sample } from '../lib/sources';
 import { href } from '../router';
-
-addStrings('es', {
-  'library.title': 'Repertorio',
-  'library.lead': 'Partituras en MusicXML (.musicxml, .xml o .mxl) para tocar con seguimiento: el cursor avanza cuando aciertas. Los PDF se pueden leer y pasar de página con el pedal.',
-  'library.server': 'Mi repertorio',
-  'library.serverHint': '{n} piezas desde {name}. Se actualiza solo al cambiar las notas del vault.',
-  'library.refresh': 'Actualizar',
-  'library.search': 'Buscar por título o etiqueta',
-  'library.all': 'Todas',
-  'library.play': 'Tocar',
-  'library.pdf': 'PDF',
-  'library.note': 'Nota',
-  'library.sourceLink': 'Fuente',
-  'library.video': 'Vídeo',
-  'library.noScore': 'Sin MusicXML',
-  'library.empty': 'Ninguna pieza coincide.',
-  'library.local': 'Mis partituras',
-  'library.localHint': 'Se guardan solo en este navegador.',
-  'library.open': 'Añadir MusicXML o PDF',
-  'library.drop': 'o arrastra aquí los archivos',
-  'library.notSupported': '{name} no es MusicXML ni PDF.',
-  'library.delete': 'Borrar',
-  'library.confirmDelete': '¿Seguro?',
-  'library.noLocal': 'Todavía no has añadido ninguna.',
-  'library.samples': 'Piezas de ejemplo',
-  'library.samplesHint': 'Melodías de dominio público con un arreglo sencillo para las dos manos.',
-  'library.where': '¿De dónde saco MusicXML? MuseScore exporta a MusicXML (Archivo › Exportar). Hay partituras de dominio público en MuseScore.com, OpenScore o IMSLP, y Audiveris convierte PDFs escaneados.',
-  'library.selfhost': '¿Tienes tus partituras en Obsidian o en un servidor? doremifaaa trae un pequeño servidor (Docker) que lee tus notas y PDFs: mira el README del proyecto.',
-  'status.Not started': 'Sin empezar',
-  'status.Learning': 'Aprendiendo',
-  'status.Mastered': 'Dominada',
-  'difficulty.Beginner': 'Principiante',
-  'difficulty.Intermediate': 'Intermedio',
-  'difficulty.Advanced': 'Avanzado'
-});
-
-addStrings('en', {
-  'library.title': 'Repertoire',
-  'library.lead': 'MusicXML scores (.musicxml, .xml or .mxl) to play with following: the cursor moves on when you are right. PDFs can be read and turned with the pedal.',
-  'library.server': 'My repertoire',
-  'library.serverHint': '{n} pieces from {name}. It updates by itself when the vault notes change.',
-  'library.refresh': 'Refresh',
-  'library.search': 'Search title or tag',
-  'library.all': 'All',
-  'library.play': 'Play',
-  'library.pdf': 'PDF',
-  'library.note': 'Note',
-  'library.sourceLink': 'Source',
-  'library.video': 'Video',
-  'library.noScore': 'No MusicXML',
-  'library.empty': 'No piece matches.',
-  'library.local': 'My scores',
-  'library.localHint': 'Stored in this browser only.',
-  'library.open': 'Add MusicXML or PDF',
-  'library.drop': 'or drop files here',
-  'library.notSupported': '{name} is neither MusicXML nor PDF.',
-  'library.delete': 'Delete',
-  'library.confirmDelete': 'Sure?',
-  'library.noLocal': 'You have not added any yet.',
-  'library.samples': 'Sample pieces',
-  'library.samplesHint': 'Public domain melodies with a simple two-hand arrangement.',
-  'library.where': 'Where do I get MusicXML? MuseScore exports it (File › Export). There are public domain scores on MuseScore.com, OpenScore or IMSLP, and Audiveris converts scanned PDFs.',
-  'library.selfhost': 'Keep your scores in Obsidian or on a server? doremifaaa ships a small Docker server that reads your notes and PDFs: see the project README.',
-  'status.Not started': 'Not started',
-  'status.Learning': 'Learning',
-  'status.Mastered': 'Mastered',
-  'difficulty.Beginner': 'Beginner',
-  'difficulty.Intermediate': 'Intermediate',
-  'difficulty.Advanced': 'Advanced'
-});
 
 type LocalMeta = Omit<LocalPiece, 'data'>;
 
@@ -90,7 +20,7 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
     .filter((p) => status === 'all' || p.status === status)
     .filter((p) => !q || p.title.toLowerCase().includes(q) || p.tags.some((tag) => tag.toLowerCase().includes(q)))
     .sort((a, b) => Number(b.hasScore) - Number(a.hasScore) || a.title.localeCompare(b.title));
-  const label = (prefix: string, v: string | null) => (v ? (t(`${prefix}.${v}`) === `${prefix}.${v}` ? v : t(`${prefix}.${v}`)) : '');
+  const label = (prefix: string, v: string | null) => (v ? (hasKey(`${prefix}.${v}`) ? t(`${prefix}.${v}`) : v) : '');
 
   return (
     <section class="stack">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { PianoKeyboard, type KeyMark } from '../components/PianoKeyboard';
 import { Segmented } from '../components/Segmented';
 import { Staff, type StaffNote } from '../components/Staff';
-import { addStrings, useT } from '../i18n';
+import { useT } from '../i18n';
 import { bus } from '../lib/input/bus';
 import type { Clef } from '../lib/music';
 import { midiName } from '../lib/music';
@@ -12,56 +12,6 @@ import { logSession } from '../lib/srs';
 import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
-
-addStrings('es', {
-  'sight.title': 'Lectura a primera vista',
-  'sight.lead': 'Un fragmento nuevo cada vez, imposible de memorizar. En modo espera el cursor avanza cuando aciertas; a tempo, sigue al metrónomo y no te espera.',
-  'sight.level': 'Nivel',
-  'sight.level.1': 'Pasos y saltos pequeños, blancas y negras',
-  'sight.level.2': 'Terceras y cuartas',
-  'sight.level.3': 'Corcheas, quintas y una línea adicional',
-  'sight.level.4': 'Saltos de sexta y dos líneas adicionales',
-  'sight.measures': 'Compases',
-  'sight.keyMax': 'Armadura de hasta {n} alteraciones',
-  'sight.keyNone': 'Sin armadura',
-  'sight.mode': 'Modo',
-  'sight.wait': 'Espera',
-  'sight.tempo': 'A tempo',
-  'sight.bpm': 'Tempo: {n} ppm',
-  'sight.new': 'Nuevo fragmento',
-  'sight.retry': 'Repetir',
-  'sight.countIn': 'Preparados… {n}',
-  'sight.playing': 'Toca siguiendo el cursor',
-  'sight.result': '{ok} de {total} notas a la primera',
-  'sight.resultTempo': '{ok} de {total} notas a tiempo',
-  'sight.wrongs': '{n} notas equivocadas',
-  'sight.played': 'Has tocado {note}'
-});
-
-addStrings('en', {
-  'sight.title': 'Sight-reading',
-  'sight.lead': 'A new fragment every time, impossible to memorise. In wait mode the cursor moves on when you are right; in tempo mode it follows the metronome and does not wait.',
-  'sight.level': 'Level',
-  'sight.level.1': 'Steps and small leaps, halves and quarters',
-  'sight.level.2': 'Thirds and fourths',
-  'sight.level.3': 'Eighths, fifths and one ledger line',
-  'sight.level.4': 'Leaps of a sixth and two ledger lines',
-  'sight.measures': 'Measures',
-  'sight.keyMax': 'Key signature up to {n} accidentals',
-  'sight.keyNone': 'No key signature',
-  'sight.mode': 'Mode',
-  'sight.wait': 'Wait',
-  'sight.tempo': 'In tempo',
-  'sight.bpm': 'Tempo: {n} bpm',
-  'sight.new': 'New fragment',
-  'sight.retry': 'Retry',
-  'sight.countIn': 'Ready… {n}',
-  'sight.playing': 'Play along with the cursor',
-  'sight.result': '{ok} of {total} notes right first time',
-  'sight.resultTempo': '{ok} of {total} notes in time',
-  'sight.wrongs': '{n} wrong notes',
-  'sight.played': 'You played {note}'
-});
 
 const CONFIG_KEY = 'doremifaaa.sight.config';
 const COLORS = { current: '#3c5bd6', ok: '#1f8a4c', late: '#c27a00', miss: '#c2372f' };
