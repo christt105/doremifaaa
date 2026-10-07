@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { writeDenied } from './guard.mjs';
 import { Store, StoreError, isPieceId } from './store.mjs';
 import { mergeSync, readSync } from './sync.mjs';
+import { Importer } from './importer.mjs';
 import { Vault, sniff } from './vault.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -99,6 +100,7 @@ export function createApp(config) {
 
   let store = null;
   let storeError = null;
+  let importing = null;
   if (config.dataDir) {
     try {
       store = new Store({ dir: config.dataDir, maxBytes: config.maxUploadBytes });
@@ -129,6 +131,10 @@ export function createApp(config) {
     }
   }
 
+  function obsidianUrl(notePath) {
+    return obsidianVault && notePath ? `obsidian://open?vault=${encodeURIComponent(obsidianVault)}&file=${encodeURIComponent(notePath.replace(/\.md$/, ''))}` : null;
+  }
+
   function vaultPiece(p) {
     const { scoreFile, pdfFile, ...rest } = p;
     const enc = encodeURIComponent(p.id);
@@ -145,7 +151,7 @@ export function createApp(config) {
       scoreFormat: scoreFile ? extname(scoreFile).slice(1).toLowerCase() : null,
       pdfUrl: p.hasPdf ? `api/pieces/${enc}/pdf` : null,
       originalUrl: null,
-      obsidianUrl: obsidianVault ? `obsidian://open?vault=${encodeURIComponent(obsidianVault)}&file=${encodeURIComponent(p.notePath.replace(/\.md$/, ''))}` : null,
+      obsidianUrl: obsidianUrl(p.notePath),
       createdAt: null,
       updatedAt: null
     };
@@ -169,8 +175,8 @@ export function createApp(config) {
       origin: p.origin,
       originRef: p.originRef,
       editable: true,
-      notePath: null,
-      obsidianUrl: null,
+      notePath: p.notePath,
+      obsidianUrl: obsidianUrl(p.notePath),
       hasScore: Boolean(p.scoreFormat),
       hasPdf: p.hasPdf,
       hasOriginal: Boolean(p.originalFormat),
@@ -250,6 +256,17 @@ export function createApp(config) {
       if (method === 'GET') return json(res, 200, readSync(store.db, profile));
       if (method === 'POST') return json(res, 200, mergeSync(store.db, profile, await readJson(req, 8 * 1024 * 1024)));
       return json(res, 405, { error: 'method not allowed' });
+    }
+    if (path === '/api/import/vault') {
+      if (!store || !vault) return json(res, 404, { error: 'import needs a vault and a store' });
+      const importer = new Importer({ vault, store, allowedRemote, paperlessUrl, paperlessToken });
+      if (method === 'GET') return json(res, 200, await importer.plan());
+      if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+      const body = Number(req.headers['content-length'] ?? 0) > 0 ? await readJson(req) : {};
+      const ids = Array.isArray(body?.ids) ? body.ids.filter((id) => typeof id === 'string') : null;
+      if (importing) return json(res, 409, { error: 'an import is already running' });
+      importing = importer.run(ids).finally(() => (importing = null));
+      return json(res, 200, await importing);
     }
     if (!vault && !store) return json(res, 404, { error: 'no library configured' });
     if (path === '/api/library') {
