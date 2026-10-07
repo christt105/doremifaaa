@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { writeDenied } from './guard.mjs';
 import { Store, StoreError, isPieceId } from './store.mjs';
+import { mergeSync, readSync } from './sync.mjs';
 import { Vault, sniff } from './vault.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -241,6 +242,14 @@ export function createApp(config) {
       if (method !== 'GET') return json(res, 405, { error: 'method not allowed' });
       const pieces = vault || store ? (await library()).pieces.length : 0;
       return json(res, 200, { ok: true, vault: Boolean(vault), pieces, store: Boolean(store), ...(storeError ? { storeError } : {}), auth: Boolean(config.writeToken) });
+    }
+    const sync = /^\/api\/sync\/([^/]+)$/.exec(path);
+    if (sync) {
+      if (!store) return json(res, 404, { error: 'store disabled' });
+      const profile = decodeURIComponent(sync[1]);
+      if (method === 'GET') return json(res, 200, readSync(store.db, profile));
+      if (method === 'POST') return json(res, 200, mergeSync(store.db, profile, await readJson(req, 8 * 1024 * 1024)));
+      return json(res, 405, { error: 'method not allowed' });
     }
     if (!vault && !store) return json(res, 404, { error: 'no library configured' });
     if (path === '/api/library') {
