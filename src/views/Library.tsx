@@ -76,7 +76,7 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
                 </a>
               )}
               {p.obsidianUrl && (
-                <a class="button ghost" href={p.obsidianUrl} title={p.notePath}>
+                <a class="button ghost" href={p.obsidianUrl} title={p.notePath ?? undefined}>
                   {t('library.note')}
                 </a>
               )}

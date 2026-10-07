@@ -1,31 +1,37 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, realpathSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { Readable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { writeDenied } from './guard.mjs';
+import { Store, StoreError, isPieceId } from './store.mjs';
 import { Vault, sniff } from './vault.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const env = process.env;
-const PORT = Number(env.PORT ?? 8080);
-const STATIC_DIR = resolve(env.STATIC_DIR ?? join(here, '..', 'dist'));
-const VAULT_DIR = env.VAULT_DIR ?? '';
-const PAPERLESS_URL = (env.PAPERLESS_URL ?? '').replace(/\/+$/, '');
-const PAPERLESS_TOKEN = env.PAPERLESS_TOKEN ?? '';
-const OBSIDIAN_VAULT = env.OBSIDIAN_VAULT ?? '';
-const LIBRARY_NAME = env.LIBRARY_NAME ?? '';
-const ALLOWED_ORIGINS = (env.ALLOWED_ORIGINS ?? 'https://christt105.github.io').split(',').map((s) => s.trim()).filter(Boolean);
 
-const vault = VAULT_DIR
-  ? new Vault({
-      root: VAULT_DIR,
-      dirs: (env.LIBRARY_DIRS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-      exclude: (env.EXCLUDE_DIRS ?? 'Templates').split(',').map((s) => s.trim()).filter(Boolean),
-      noteType: env.NOTE_TYPE ?? 'partitura',
-      ttlMs: Number(env.SCAN_TTL_SECONDS ?? 60) * 1000
-    })
-  : null;
+const list = (value) => value.split(',').map((s) => s.trim()).filter(Boolean);
+const positive = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback);
+
+export function loadConfig(env = process.env) {
+  return {
+    port: Number(env.PORT ?? 8080),
+    staticDir: resolve(env.STATIC_DIR ?? join(here, '..', 'dist')),
+    vaultDir: env.VAULT_DIR ?? '',
+    libraryDirs: list(env.LIBRARY_DIRS ?? ''),
+    excludeDirs: list(env.EXCLUDE_DIRS ?? 'Templates'),
+    noteType: env.NOTE_TYPE ?? 'partitura',
+    scanTtlMs: Number(env.SCAN_TTL_SECONDS ?? 60) * 1000,
+    paperlessUrl: (env.PAPERLESS_URL ?? '').replace(/\/+$/, ''),
+    paperlessToken: env.PAPERLESS_TOKEN ?? '',
+    obsidianVault: env.OBSIDIAN_VAULT ?? '',
+    libraryName: env.LIBRARY_NAME ?? '',
+    allowedOrigins: list(env.ALLOWED_ORIGINS ?? 'https://christt105.github.io'),
+    dataDir: env.DATA_DIR ?? '',
+    writeToken: env.WRITE_TOKEN ?? '',
+    maxUploadBytes: positive(env.MAX_UPLOAD_MB ?? 50, 50) * 1024 * 1024
+  };
+}
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -44,17 +50,6 @@ const TYPES = {
   '.pdf': 'application/pdf'
 };
 
-function cors(req, res) {
-  const origin = req.headers.origin;
-  res.setHeader('Vary', 'Origin');
-  if (origin && (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Private-Network', 'true');
-  }
-}
-
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': TYPES['.json'], 'Cache-Control': 'no-cache' });
   res.end(JSON.stringify(body));
@@ -70,13 +65,18 @@ async function sendFile(res, file, headers = {}) {
   createReadStream(file).pipe(res);
 }
 
-function allowedRemote(url) {
+async function readJson(req, limit = 64 * 1024) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    size += chunk.length;
+    if (size > limit) throw new StoreError(413, 'body too large');
+    chunks.push(chunk);
+  }
   try {
-    const u = new URL(url);
-    if (!/^https?:$/.test(u.protocol)) return false;
-    return Boolean(PAPERLESS_URL) && u.origin === new URL(PAPERLESS_URL).origin;
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    return false;
+    throw new StoreError(400, 'invalid JSON');
   }
 }
 
@@ -90,87 +90,260 @@ async function proxy(res, url, headers = {}) {
   Readable.fromWeb(upstream.body).pipe(res);
 }
 
-function publicPiece(p) {
-  const { scoreFile, pdfFile, ...rest } = p;
-  const enc = encodeURIComponent(p.id);
-  return {
-    ...rest,
-    scoreUrl: p.hasScore ? `api/pieces/${enc}/score` : null,
-    scoreFormat: scoreFile ? extname(scoreFile).slice(1).toLowerCase() : null,
-    pdfUrl: p.hasPdf ? `api/pieces/${enc}/pdf` : null,
-    obsidianUrl: OBSIDIAN_VAULT ? `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT)}&file=${encodeURIComponent(p.notePath.replace(/\.md$/, ''))}` : null
-  };
-}
+export function createApp(config) {
+  const { staticDir, paperlessUrl, paperlessToken, obsidianVault, allowedOrigins } = config;
+  const vault = config.vaultDir
+    ? new Vault({ root: config.vaultDir, dirs: config.libraryDirs, exclude: config.excludeDirs, noteType: config.noteType, ttlMs: config.scanTtlMs })
+    : null;
 
-async function api(req, res, path) {
-  if (path === '/api/health') return json(res, 200, { ok: true, vault: Boolean(vault), pieces: vault ? (await vault.get()).pieces.length : 0 });
-  if (!vault) return json(res, 404, { error: 'no library configured' });
-  if (path === '/api/library') {
-    const { pieces, scannedAt } = await vault.get(new URL(req.url, 'http://x').searchParams.has('refresh'));
-    return json(res, 200, { name: LIBRARY_NAME, scannedAt, pieces: pieces.map(publicPiece) });
+  let store = null;
+  let storeError = null;
+  if (config.dataDir) {
+    try {
+      store = new Store({ dir: config.dataDir, maxBytes: config.maxUploadBytes });
+    } catch (e) {
+      storeError = e instanceof Error ? e.message : String(e);
+      console.error(`store disabled: ${storeError}`);
+    }
   }
-  const m = /^\/api\/pieces\/([^/]+)\/(score|pdf)$/.exec(path);
-  if (!m) return json(res, 404, { error: 'not found' });
-  const piece = await vault.piece(decodeURIComponent(m[1]));
-  if (!piece) return json(res, 404, { error: 'unknown piece' });
-  if (m[2] === 'score') {
-    if (!piece.scoreFile || !vault.inside(piece.scoreFile)) return json(res, 404, { error: 'no score' });
-    return sendFile(res, piece.scoreFile, { 'Cache-Control': 'no-cache' });
-  }
-  if (piece.pdfFile && vault.inside(piece.pdfFile)) {
-    const kind = await sniff(piece.pdfFile);
-    if (kind.kind === 'pdf') return sendFile(res, piece.pdfFile, { 'Cache-Control': 'private, max-age=3600' });
-    if (kind.kind === 'url' && allowedRemote(kind.url)) return proxy(res, kind.url);
-  }
-  if (PAPERLESS_URL && PAPERLESS_TOKEN && piece.paperlessId)
-    return proxy(res, `${PAPERLESS_URL}/api/documents/${piece.paperlessId}/download/`, { Authorization: `Token ${PAPERLESS_TOKEN}` });
-  return json(res, 404, { error: 'no pdf' });
-}
 
-async function serveStatic(req, res, path) {
-  const rel = normalize(decodeURIComponent(path)).replace(/^([/\\])+/, '');
-  let file = resolve(STATIC_DIR, rel || 'index.html');
-  if (file !== STATIC_DIR && !file.startsWith(STATIC_DIR + sep)) return json(res, 403, { error: 'forbidden' });
-  try {
-    if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
-  } catch {
-    file = join(STATIC_DIR, 'index.html');
+  function cors(req, res) {
+    const origin = req.headers.origin;
+    res.setHeader('Vary', 'Origin');
+    if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
   }
-  const name = file.slice(STATIC_DIR.length + 1).split(sep).join('/');
-  const cache = name.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
-  try {
-    await sendFile(res, file, { 'Cache-Control': cache });
-  } catch {
-    json(res, 404, { error: 'not found' });
-  }
-}
 
-const server = createServer(async (req, res) => {
-  const path = new URL(req.url ?? '/', 'http://x').pathname;
-  try {
-    decodeURIComponent(path);
-  } catch {
-    return json(res, 400, { error: 'bad request' });
+  function allowedRemote(url) {
+    try {
+      const u = new URL(url);
+      if (!/^https?:$/.test(u.protocol)) return false;
+      return Boolean(paperlessUrl) && u.origin === new URL(paperlessUrl).origin;
+    } catch {
+      return false;
+    }
   }
-  try {
-    if (path.startsWith('/api/')) {
-      cors(req, res);
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        return res.end();
+
+  function vaultPiece(p) {
+    const { scoreFile, pdfFile, ...rest } = p;
+    const enc = encodeURIComponent(p.id);
+    return {
+      ...rest,
+      composer: null,
+      notes: null,
+      location: 'vault',
+      origin: null,
+      originRef: null,
+      editable: false,
+      hasOriginal: false,
+      scoreUrl: p.hasScore ? `api/pieces/${enc}/score` : null,
+      scoreFormat: scoreFile ? extname(scoreFile).slice(1).toLowerCase() : null,
+      pdfUrl: p.hasPdf ? `api/pieces/${enc}/pdf` : null,
+      originalUrl: null,
+      obsidianUrl: obsidianVault ? `obsidian://open?vault=${encodeURIComponent(obsidianVault)}&file=${encodeURIComponent(p.notePath.replace(/\.md$/, ''))}` : null,
+      createdAt: null,
+      updatedAt: null
+    };
+  }
+
+  function storePiece(p) {
+    const url = (slot) => `api/pieces/${p.id}/${slot}?v=${p.updatedAt}`;
+    return {
+      id: p.id,
+      title: p.title,
+      composer: p.composer,
+      status: p.status,
+      difficulty: p.difficulty,
+      tags: p.tags,
+      source: p.source,
+      video: p.video,
+      startedAt: p.startedAt,
+      finishedAt: p.finishedAt,
+      notes: p.notes,
+      location: 'store',
+      origin: p.origin,
+      originRef: p.originRef,
+      editable: true,
+      notePath: null,
+      obsidianUrl: null,
+      hasScore: Boolean(p.scoreFormat),
+      hasPdf: p.hasPdf,
+      hasOriginal: Boolean(p.originalFormat),
+      scoreUrl: p.scoreFormat ? url('score') : null,
+      scoreFormat: p.scoreFormat,
+      pdfUrl: p.hasPdf ? url('pdf') : null,
+      originalUrl: p.originalFormat ? url('original') : null,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt
+    };
+  }
+
+  async function library(refresh = false) {
+    const scan = vault ? await vault.get(refresh) : null;
+    const imported = store ? store.originRefs('vault') : new Set();
+    const pieces = [
+      ...(store ? store.list().map(storePiece) : []),
+      ...(scan ? scan.pieces.filter((p) => !imported.has(p.id)).map(vaultPiece) : [])
+    ].sort((a, b) => a.title.localeCompare(b.title, 'es'));
+    return { scannedAt: scan?.scannedAt ?? Date.now(), pieces };
+  }
+
+  async function findPiece(id) {
+    const own = store && (store.get(id) ?? store.findByOrigin('vault', id));
+    if (own) return { own };
+    const piece = vault ? await vault.piece(id) : null;
+    return piece ? { piece } : null;
+  }
+
+  async function sendPieceFile(res, found, slot) {
+    if (found.own) {
+      const file = store.filePath(found.own.id, slot);
+      if (!file) return json(res, 404, { error: `no ${slot}` });
+      return sendFile(res, file, { 'Cache-Control': 'no-cache' });
+    }
+    const { piece } = found;
+    if (slot === 'original') return json(res, 404, { error: 'no original' });
+    if (slot === 'score') {
+      if (!piece.scoreFile || !vault.inside(piece.scoreFile)) return json(res, 404, { error: 'no score' });
+      return sendFile(res, piece.scoreFile, { 'Cache-Control': 'no-cache' });
+    }
+    if (piece.pdfFile && vault.inside(piece.pdfFile)) {
+      const kind = await sniff(piece.pdfFile);
+      if (kind.kind === 'pdf') return sendFile(res, piece.pdfFile, { 'Cache-Control': 'private, max-age=3600' });
+      if (kind.kind === 'url' && allowedRemote(kind.url)) return proxy(res, kind.url);
+    }
+    if (paperlessUrl && paperlessToken && piece.paperlessId)
+      return proxy(res, `${paperlessUrl}/api/documents/${piece.paperlessId}/download/`, { Authorization: `Token ${paperlessToken}` });
+    return json(res, 404, { error: 'no pdf' });
+  }
+
+  async function writable(res, id) {
+    if (store.get(id)) return true;
+    if (vault && (await vault.piece(id))) json(res, 409, { error: 'read-only' });
+    else if (isPieceId(id)) json(res, 404, { error: 'unknown piece' });
+    else json(res, 400, { error: 'invalid id' });
+    return false;
+  }
+
+  async function api(req, res, path) {
+    const url = new URL(req.url, 'http://x');
+    const method = req.method === 'HEAD' ? 'GET' : req.method;
+    if (method !== 'GET') {
+      if (!store) return storeError ? json(res, 503, { error: 'store unavailable', storeError }) : json(res, 404, { error: 'store disabled' });
+      const denied = writeDenied(req.headers, config);
+      if (denied) return json(res, denied.status, { error: denied.error });
+    }
+    if (path === '/api/health') {
+      if (method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+      const pieces = vault || store ? (await library()).pieces.length : 0;
+      return json(res, 200, { ok: true, vault: Boolean(vault), pieces, store: Boolean(store), ...(storeError ? { storeError } : {}), auth: Boolean(config.writeToken) });
+    }
+    if (!vault && !store) return json(res, 404, { error: 'no library configured' });
+    if (path === '/api/library') {
+      if (method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+      const { pieces, scannedAt } = await library(url.searchParams.has('refresh'));
+      return json(res, 200, { name: config.libraryName, scannedAt, store: { enabled: Boolean(store), auth: Boolean(config.writeToken) }, pieces });
+    }
+    const m = /^\/api\/pieces(?:\/([^/]+)(?:\/(score|pdf|original))?)?$/.exec(path);
+    if (!m) return json(res, 404, { error: 'not found' });
+    const [, rawId, slot] = m;
+    if (!rawId) {
+      if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+      const piece = await store.upload(req, { name: url.searchParams.get('name'), title: url.searchParams.get('title'), size: req.headers['content-length'] });
+      return json(res, 201, storePiece(piece));
+    }
+    const id = decodeURIComponent(rawId);
+    if (method === 'GET') {
+      const found = await findPiece(id);
+      if (!found) return json(res, 404, { error: 'unknown piece' });
+      if (slot) return sendPieceFile(res, found, slot);
+      return json(res, 200, found.own ? storePiece(found.own) : vaultPiece(found.piece));
+    }
+    if (method === 'PATCH' && !slot) {
+      if (!(await writable(res, id))) return;
+      return json(res, 200, storePiece(store.patch(id, await readJson(req))));
+    }
+    if (method === 'PUT' && (slot === 'score' || slot === 'pdf')) {
+      if (!(await writable(res, id))) return;
+      const staged = await store.stage(req, req.headers['content-length']);
+      return json(res, 200, storePiece(await store.putFile(id, slot, staged, { keepOriginal: url.searchParams.get('keepOriginal') === '1' })));
+    }
+    if (method === 'DELETE') {
+      if (!(await writable(res, id))) return;
+      if (slot) return json(res, 200, storePiece(await store.removeFile(id, slot)));
+      await store.remove(id);
+      res.writeHead(204);
+      return res.end();
+    }
+    return json(res, 405, { error: 'method not allowed' });
+  }
+
+  async function serveStatic(req, res, path) {
+    const rel = normalize(decodeURIComponent(path)).replace(/^([/\\])+/, '');
+    let file = resolve(staticDir, rel || 'index.html');
+    if (file !== staticDir && !file.startsWith(staticDir + sep)) return json(res, 403, { error: 'forbidden' });
+    try {
+      if ((await stat(file)).isDirectory()) file = join(file, 'index.html');
+    } catch {
+      file = join(staticDir, 'index.html');
+    }
+    const name = file.slice(staticDir.length + 1).split(sep).join('/');
+    const cache = name.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+    try {
+      await sendFile(res, file, { 'Cache-Control': cache });
+    } catch {
+      json(res, 404, { error: 'not found' });
+    }
+  }
+
+  const server = createServer(async (req, res) => {
+    const path = new URL(req.url ?? '/', 'http://x').pathname;
+    try {
+      decodeURIComponent(path);
+    } catch {
+      return json(res, 400, { error: 'bad request' });
+    }
+    try {
+      if (path.startsWith('/api/')) {
+        cors(req, res);
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204);
+          return res.end();
+        }
+        return await api(req, res, path);
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method not allowed' });
-      return await api(req, res, path);
+      return await serveStatic(req, res, path);
+    } catch (e) {
+      if (e instanceof StoreError && !res.headersSent) {
+        if (e.status === 413) res.setHeader('Connection', 'close');
+        return json(res, e.status, { error: e.message });
+      }
+      console.error(e);
+      if (!res.headersSent) json(res, 500, { error: 'internal error' });
+      else res.end();
     }
-    if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method not allowed' });
-    return await serveStatic(req, res, path);
-  } catch (e) {
-    console.error(e);
-    if (!res.headersSent) json(res, 500, { error: 'internal error' });
-    else res.end();
-  }
-});
+  });
+  server.on('close', () => store?.close());
+  return server;
+}
 
-server.listen(PORT, () => {
-  console.log(`doremifaaa on :${PORT} (static ${STATIC_DIR}${vault ? `, vault ${vault.root}` : ', no vault'})`);
-});
+function isMain() {
+  try {
+    return Boolean(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url;
+  } catch {
+    return false;
+  }
+}
+
+if (isMain()) {
+  const config = loadConfig();
+  const server = createApp(config);
+  server.listen(config.port, () => {
+    console.log(`doremifaaa on :${config.port} (static ${config.staticDir}${config.vaultDir ? `, vault ${resolve(config.vaultDir)}` : ', no vault'})`);
+  });
+}
