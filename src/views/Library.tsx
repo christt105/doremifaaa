@@ -4,6 +4,7 @@ import { STATUS_ORDER, fetchLibrary, type ServerLibrary, type ServerPiece } from
 import { uploadPiece } from '../lib/api';
 import { deleteLocal, getLocal, listLocal, type LocalPiece } from '../lib/localdb';
 import { FILE_ACCEPT, fileKind, importFile, listSamples, type Sample } from '../lib/sources';
+import { QualityBadge } from '../components/QualityBadge';
 import { VaultImport } from '../components/VaultImport';
 import { href } from '../router';
 import { errorText } from './Manage';
@@ -123,6 +124,7 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
               <span class="row wrap small" style={{ gap: '0.3rem' }}>
                 {p.status && <span class={`badge status-${p.status.replace(/\s+/g, '-').toLowerCase()}`}>{label('status', p.status)}</span>}
                 {p.difficulty && <span class="badge">{label('difficulty', p.difficulty)}</span>}
+                <QualityBadge piece={p} onChange={onRefresh} />
                 {p.tags.map((tag) => (
                   <span key={tag} class="muted">
                     #{tag}

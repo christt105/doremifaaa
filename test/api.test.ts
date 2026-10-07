@@ -79,7 +79,7 @@ describe('store API', () => {
   });
 
   it('reports the store in health and preflight', async () => {
-    expect((await call('GET', '/api/health')).json).toEqual({ ok: true, vault: true, pieces: 2, store: true, auth: false });
+    expect((await call('GET', '/api/health')).json).toEqual({ ok: true, vault: true, pieces: 2, store: true, auth: false, omr: false });
     const pre = await call('OPTIONS', '/api/pieces', { headers: { Origin: github } });
     expect(pre.status).toBe(204);
     expect(pre.headers['access-control-allow-methods']).toBe('GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -109,7 +109,7 @@ describe('store API', () => {
 
   it('lists store pieces next to vault pieces', async () => {
     const lib = (await call('GET', '/api/library')).json;
-    expect(lib.store).toEqual({ enabled: true, auth: false });
+    expect(lib.store).toEqual({ enabled: true, auth: false, omr: false });
     expect(lib.pieces.map((p: { title: string; location: string }) => `${p.title}:${p.location}`)).toEqual([
       'Minuet in G:store',
       'Route 201:vault',
@@ -212,9 +212,9 @@ describe('store API with a write token', () => {
 describe('without a working store', () => {
   it('keeps serving the vault when the store is disabled', async () => {
     const call = await start({});
-    expect((await call('GET', '/api/health')).json).toEqual({ ok: true, vault: true, pieces: 2, store: false, auth: false });
+    expect((await call('GET', '/api/health')).json).toEqual({ ok: true, vault: true, pieces: 2, store: false, auth: false, omr: false });
     const lib = (await call('GET', '/api/library')).json;
-    expect(lib.store).toEqual({ enabled: false, auth: false });
+    expect(lib.store).toEqual({ enabled: false, auth: false, omr: false });
     expect(lib.pieces).toHaveLength(2);
     expect((await call('POST', '/api/pieces?name=a.pdf', { body: pdf })).json).toEqual({ error: 'store disabled' });
   });

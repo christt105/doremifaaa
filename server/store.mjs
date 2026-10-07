@@ -1,8 +1,9 @@
 import { randomInt } from 'node:crypto';
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { mkdir, open, rename, rm } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { quality } from './omrcheck.mjs';
 
 const ID = /^[a-z0-9]{10}$/;
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,7 +42,12 @@ export const MIGRATIONS = [
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (profile, key)
   );`,
-  `ALTER TABLE pieces ADD COLUMN note_path TEXT;`
+  `ALTER TABLE pieces ADD COLUMN note_path TEXT;`,
+  `ALTER TABLE pieces ADD COLUMN score_origin TEXT;
+  ALTER TABLE pieces ADD COLUMN quality TEXT;
+  ALTER TABLE pieces ADD COLUMN omr_state TEXT;
+  ALTER TABLE pieces ADD COLUMN omr_error TEXT;
+  ALTER TABLE pieces ADD COLUMN omr_at INTEGER;`
 ];
 
 export class StoreError extends Error {
@@ -137,6 +143,9 @@ function toPiece(row) {
     origin: row.origin,
     originRef: row.origin_ref,
     notePath: row.note_path ?? null,
+    scoreOrigin: row.score_format ? (row.score_origin ?? 'upload') : null,
+    quality: row.score_format && row.quality ? JSON.parse(row.quality) : null,
+    omr: row.omr_state ? { state: row.omr_state, error: row.omr_error, updatedAt: row.omr_at } : null,
     scoreFormat: row.score_format,
     hasPdf: Boolean(row.has_pdf),
     originalFormat: row.original_format,
@@ -288,23 +297,23 @@ export class Store {
     }
   }
 
-  async putFile(id, slot, staged, { keepOriginal = false } = {}) {
+  async putFile(id, slot, staged, { keepOriginal = false, scoreOrigin = 'upload' } = {}) {
     try {
       const piece = this.require(id);
       if (staged.kind !== slot) throw new StoreError(415, slot === 'score' ? 'expected a MusicXML or MXL file' : 'expected a PDF file');
-      return await this.attach(piece, slot, staged, { keepOriginal });
+      return await this.attach(piece, slot, staged, { keepOriginal, scoreOrigin });
     } finally {
       await this.discard(staged);
     }
   }
 
-  async attach(piece, slot, staged, { keepOriginal }) {
+  async attach(piece, slot, staged, { keepOriginal, scoreOrigin = 'upload' }) {
     await mkdir(this.path(piece.id, '.'), { recursive: true });
     if (slot === 'pdf') {
       await rename(staged.file, this.path(piece.id, 'pdf.pdf'));
       return this.update(piece, { has_pdf: 1 });
     }
-    const columns = { score_format: staged.format };
+    const columns = { score_format: staged.format, score_origin: scoreOrigin, quality: JSON.stringify(quality(await readFile(staged.file))) };
     if (keepOriginal && piece.scoreFormat && !piece.originalFormat) {
       await rename(this.path(piece.id, `score.${piece.scoreFormat}`), this.path(piece.id, `original.${piece.scoreFormat}`));
       columns.original_format = piece.scoreFormat;
@@ -312,6 +321,16 @@ export class Store {
     for (const f of SCORE_FORMATS) if (f !== staged.format) await rm(this.path(piece.id, `score.${f}`), { force: true });
     await rename(staged.file, this.path(piece.id, `score.${staged.format}`));
     return this.update(piece, columns);
+  }
+
+  setOmr(id, state, error = null) {
+    const piece = this.require(id);
+    this.db.prepare('UPDATE pieces SET omr_state = ?, omr_error = ?, omr_at = ? WHERE id = ?').run(state, error, state ? Date.now() : null, piece.id);
+    return this.get(piece.id);
+  }
+
+  withOmr(state) {
+    return this.db.prepare('SELECT * FROM pieces WHERE omr_state = ?').all(state).map(toPiece);
   }
 
   async removeFile(id, slot) {

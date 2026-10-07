@@ -3,6 +3,13 @@ import { settings } from './settings';
 export type PieceLocation = 'store' | 'vault';
 export type PieceOrigin = 'upload' | 'vault' | 'omr';
 
+export interface ScoreQuality {
+  measures: number;
+  notes: number;
+  wrongLength: string[];
+  emptyStaff: string[];
+}
+
 export interface ServerPiece {
   id: string;
   title: string;
@@ -28,6 +35,9 @@ export interface ServerPiece {
   scoreFormat: string | null;
   pdfUrl: string | null;
   originalUrl?: string | null;
+  scoreOrigin?: 'upload' | 'omr' | 'vault' | null;
+  quality?: ScoreQuality | null;
+  omr?: { state: 'queued' | 'running' | 'done' | 'failed'; error: string | null; updatedAt: number } | null;
   createdAt?: number | null;
   updatedAt?: number | null;
 }
@@ -35,7 +45,7 @@ export interface ServerPiece {
 export interface ServerLibrary {
   name: string;
   scannedAt: number;
-  store?: { enabled: boolean; auth: boolean };
+  store?: { enabled: boolean; auth: boolean; omr?: boolean };
   pieces: ServerPiece[];
 }
 

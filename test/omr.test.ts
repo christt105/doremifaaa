@@ -20,4 +20,9 @@ describe('OMR quality check', () => {
     const silent = xml.replace(/(<measure number="3">[\s\S]*?<backup>[\s\S]*?)<note><pitch>[\s\S]*?<\/note>/, '$1');
     expect(check(silent).emptyStaff).toEqual(['3:2']);
   });
+
+  it('does not mistake measure-numbering for a measure', () => {
+    const numbered = xml.replace('<measure number="1">', '<measure number="1"><print><measure-numbering>system</measure-numbering></print>');
+    expect(check(numbered)).toMatchObject({ measures: 16, wrongLength: [], emptyStaff: [] });
+  });
 });

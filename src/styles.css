@@ -1045,3 +1045,13 @@ th.num {
     font-size: 1.15rem;
   }
 }
+
+.badge.quality-bad {
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  color: var(--bad);
+}
+
+.notice {
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+  padding: 0.7rem 1rem;
+}

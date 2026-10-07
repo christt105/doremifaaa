@@ -66,7 +66,7 @@ export class Importer {
 
   async copy(own, slot, open) {
     const staged = await this.store.stage(await open());
-    return this.store.putFile(own.id, slot, staged);
+    return this.store.putFile(own.id, slot, staged, { scoreOrigin: 'vault' });
   }
 
   async importOne(piece) {
