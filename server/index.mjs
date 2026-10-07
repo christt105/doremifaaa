@@ -21,6 +21,7 @@ const vault = VAULT_DIR
   ? new Vault({
       root: VAULT_DIR,
       dirs: (env.LIBRARY_DIRS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      exclude: (env.EXCLUDE_DIRS ?? 'Templates').split(',').map((s) => s.trim()).filter(Boolean),
       noteType: env.NOTE_TYPE ?? 'partitura',
       ttlMs: Number(env.SCAN_TTL_SECONDS ?? 60) * 1000
     })
@@ -45,9 +46,9 @@ const TYPES = {
 
 function cors(req, res) {
   const origin = req.headers.origin;
+  res.setHeader('Vary', 'Origin');
   if (origin && (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
@@ -73,7 +74,7 @@ function allowedRemote(url) {
   try {
     const u = new URL(url);
     if (!/^https?:$/.test(u.protocol)) return false;
-    return !PAPERLESS_URL || u.origin === new URL(PAPERLESS_URL).origin;
+    return Boolean(PAPERLESS_URL) && u.origin === new URL(PAPERLESS_URL).origin;
   } catch {
     return false;
   }
@@ -146,6 +147,11 @@ async function serveStatic(req, res, path) {
 
 const server = createServer(async (req, res) => {
   const path = new URL(req.url ?? '/', 'http://x').pathname;
+  try {
+    decodeURIComponent(path);
+  } catch {
+    return json(res, 400, { error: 'bad request' });
+  }
   try {
     if (path.startsWith('/api/')) {
       cors(req, res);

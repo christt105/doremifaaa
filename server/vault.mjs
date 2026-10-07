@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { open, readdir, readFile } from 'node:fs/promises';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 
 const SKIP = new Set(['.obsidian', '.trash', '.git', 'node_modules', '.stfolder', '.stversions']);
@@ -61,7 +61,7 @@ export function embeds(body) {
   return [...body.matchAll(/!\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]/g)].map((m) => m[1].trim());
 }
 
-async function walk(root, dir, out) {
+async function walk(dir, out, excluded) {
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -71,9 +71,15 @@ async function walk(root, dir, out) {
   for (const e of entries) {
     if (SKIP.has(e.name) || e.name.startsWith('.')) continue;
     const full = join(dir, e.name);
-    if (e.isDirectory()) await walk(root, full, out);
+    if (e.isDirectory()) {
+      if (!excluded.has(full.toLowerCase())) await walk(full, out, excluded);
+    }
     else if (e.isFile()) out.push(full);
   }
+}
+
+function isTemplate(data) {
+  return Object.values(data).some((v) => typeof v === 'string' && /<%|{{/.test(v));
 }
 
 export function slug(name) {
@@ -81,9 +87,10 @@ export function slug(name) {
 }
 
 export class Vault {
-  constructor({ root, dirs = [], noteType = 'partitura', ttlMs = 60000 }) {
+  constructor({ root, dirs = [], exclude = ['Templates'], noteType = 'partitura', ttlMs = 60000 }) {
     this.root = resolve(root);
     this.dirs = dirs.length ? dirs.map((d) => resolve(this.root, d)) : [this.root];
+    this.excluded = new Set(exclude.map((d) => resolve(this.root, d).toLowerCase()));
     this.noteType = noteType;
     this.ttlMs = ttlMs;
     this.cache = null;
@@ -97,7 +104,7 @@ export class Vault {
 
   async scan() {
     const files = [];
-    for (const d of this.dirs) if (this.inside(d)) await walk(this.root, d, files);
+    for (const d of this.dirs) if (this.inside(d)) await walk(d, files, this.excluded);
     const byName = new Map();
     for (const f of files) {
       const key = basename(f).toLowerCase();
@@ -126,7 +133,7 @@ export class Vault {
       }
       if (!text.startsWith('---')) continue;
       const { data, body } = parseFrontmatter(text);
-      if (data.type !== this.noteType) continue;
+      if (data.type !== this.noteType || isTemplate(data)) continue;
       const name = basename(f, '.md');
       let id = slug(name);
       if (ids.has(id)) id = slug(relative(this.root, f).split(sep).join('/').replace(/\.md$/, ''));
@@ -173,12 +180,16 @@ export class Vault {
 }
 
 export async function sniff(file) {
-  const info = await stat(file);
-  const fh = await readFile(file);
-  const head = fh.subarray(0, 8).toString('latin1');
-  if (head.startsWith('%PDF')) return { kind: 'pdf', size: info.size };
-  const text = info.size < 4096 ? fh.toString('utf8').trim() : '';
-  const url = /^https?:\/\/\S+$/.exec(text);
-  if (url) return { kind: 'url', url: url[0], size: info.size };
-  return { kind: 'unknown', size: info.size };
+  const fh = await open(file, 'r');
+  try {
+    const { size } = await fh.stat();
+    const { buffer, bytesRead } = await fh.read(Buffer.alloc(4096), 0, 4096, 0);
+    const head = buffer.subarray(0, bytesRead);
+    if (head.subarray(0, 4).toString('latin1') === '%PDF') return { kind: 'pdf', size };
+    const url = size < 4096 ? /^https?:\/\/\S+$/.exec(head.toString('utf8').trim()) : null;
+    if (url) return { kind: 'url', url: url[0], size };
+    return { kind: 'unknown', size };
+  } finally {
+    await fh.close();
+  }
 }
