@@ -117,6 +117,10 @@ curl -X PUT -H "$AUTH" --data-binary @minuet-fixed.mxl "$SERVER/api/pieces/<id>/
 curl -X DELETE -H "$AUTH" "$SERVER/api/pieces/<id>"
 ```
 
+### Importing the vault into the store
+
+Repertoire › "Import from the vault" (or `POST /api/import/vault`, optionally with `{ "ids": [...] }`) copies every vault piece into the store in one go: metadata from the frontmatter, the score file and the PDF. A real PDF is copied, a share-link stub is downloaded only if it points to `PAPERLESS_URL`, and with `PAPERLESS_TOKEN` a `paperless_id` is fetched from the Paperless API. The vault is only read. Imported pieces keep their "open note" link and their `#/piece/<note name>` address, and from then on the list shows the store copy instead of the vault one. Running it again only fills in files that are still missing (for example a PDF whose download failed), it never duplicates pieces. `GET /api/import/vault` shows what would be imported.
+
 ### Syncing settings and progress
 
 With a store, settings, statistics and spaced repetition progress are kept on the server too, so every device that uses it shares them. The app syncs when it starts, when it gets focus and a couple of seconds after a change. Progress is merged item by item, so practising on two devices never loses answers; other values keep the newest change. The server address, the write token, the MIDI input and the microphone switch stay on each device.

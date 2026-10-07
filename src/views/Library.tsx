@@ -4,6 +4,7 @@ import { STATUS_ORDER, fetchLibrary, type ServerLibrary, type ServerPiece } from
 import { uploadPiece } from '../lib/api';
 import { deleteLocal, getLocal, listLocal, type LocalPiece } from '../lib/localdb';
 import { FILE_ACCEPT, fileKind, importFile, listSamples, type Sample } from '../lib/sources';
+import { VaultImport } from '../components/VaultImport';
 import { href } from '../router';
 import { errorText } from './Manage';
 
@@ -99,6 +100,7 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
         <button onClick={onRefresh}>↻ {t('library.refresh')}</button>
       </div>
       {lib.store?.enabled && <ServerUpload onDone={onRefresh} />}
+      {lib.store?.enabled && <VaultImport onDone={onRefresh} />}
       <div class="row wrap">
         <input type="search" class="grow" placeholder={t('library.search')} value={query} onInput={(e) => setQuery(e.currentTarget.value)} style={{ maxWidth: '22rem' }} />
         <div class="segmented">
