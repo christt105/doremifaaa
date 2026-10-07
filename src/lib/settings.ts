@@ -16,6 +16,7 @@ export interface Settings {
   micEnabled: boolean;
   libraryUrl: string;
   serverToken: string;
+  syncProfile: string;
   showNoteNames: boolean;
 }
 
@@ -34,18 +35,25 @@ function defaults(): Settings {
     micEnabled: false,
     libraryUrl: '',
     serverToken: '',
+    syncProfile: 'default',
     showNoteNames: false
   };
 }
 
-function stored(): Partial<Settings> {
+export function stored(): Partial<Settings> {
   const s = load<Partial<Settings>>(KEY, {});
   if (s.lang !== undefined && !isAvailable(s.lang)) delete s.lang;
   if (s.naming !== undefined && !NAMINGS.includes(s.naming)) delete s.naming;
   return s;
 }
 
-export const settings = createStore<Settings>({ ...defaults(), ...stored() }, (v) => save(KEY, v));
+export const SETTINGS_KEY = KEY;
+
+export function readSettings(): Settings {
+  return { ...defaults(), ...stored() };
+}
+
+export const settings = createStore<Settings>(readSettings(), (v) => save(KEY, v));
 
 export function updateSettings(patch: Partial<Settings>): void {
   settings.set((prev) => ({ ...prev, ...patch }));

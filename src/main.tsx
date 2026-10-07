@@ -6,6 +6,7 @@ import { installComputerKeyboard } from './lib/input/keyboard';
 import { startMic } from './lib/input/mic';
 import { autoConnectMidi } from './lib/input/midi';
 import { settings } from './lib/settings';
+import { startSync } from './lib/sync';
 import * as synth from './lib/synth';
 import './styles.css';
 
@@ -17,6 +18,7 @@ bus.onNote((e) => {
   else synth.noteOff(e.midi);
 });
 
+startSync();
 installComputerKeyboard();
 void autoConnectMidi();
 if (settings.get().micEnabled) void startMic();

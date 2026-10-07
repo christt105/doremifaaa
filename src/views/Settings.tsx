@@ -5,7 +5,9 @@ import { midiStatus } from '../lib/input/midi';
 import { LANGUAGES } from '../lib/locales';
 import type { Naming } from '../lib/music';
 import { settings, updateSettings } from '../lib/settings';
+import { save } from '../lib/storage';
 import { useStore } from '../lib/store';
+import { RESET_KEY, resetAvailability, setupLink, syncNow, syncStatus } from '../lib/sync';
 
 const PREFIX = 'doremifaaa.';
 const SETTINGS_KEY = 'doremifaaa.settings';
@@ -26,6 +28,16 @@ export function SettingsView() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [message, setMessage] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
+  const sync = useStore(syncStatus);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    const link = setupLink(location.href, s.libraryUrl, s.syncProfile);
+    void navigator.clipboard?.writeText(link).then(
+      () => setCopied(true),
+      () => window.prompt(t('sync.copyLink'), link)
+    );
+  };
 
   const exportData = () => {
     const data: Record<string, unknown> = {};
@@ -42,7 +54,7 @@ export function SettingsView() {
     try {
       const parsed = JSON.parse(await file.text());
       Object.entries(parsed.data ?? {}).forEach(([k, v]) => {
-        if (k.startsWith(PREFIX)) localStorage.setItem(k, JSON.stringify(v));
+        if (k.startsWith(PREFIX)) save(k, v);
       });
       setMessage(t('settings.imported'));
       setTimeout(() => location.reload(), 600);
@@ -57,6 +69,7 @@ export function SettingsView() {
       return;
     }
     progressKeys().forEach((k) => localStorage.removeItem(k));
+    save(RESET_KEY, Date.now());
     location.reload();
   };
 
@@ -124,6 +137,9 @@ export function SettingsView() {
           </div>
         )}
         {mic.state === 'error' && <p class="bad small">{mic.error}</p>}
+      </section>
+      <section class="card form">
+        <h2>{t('sync.title')}</h2>
         <label>
           <span>{t('settings.library')}</span>
           <input
@@ -139,6 +155,37 @@ export function SettingsView() {
           <input type="password" autocomplete="off" value={s.serverToken} onChange={(e) => updateSettings({ serverToken: e.currentTarget.value.trim() })} />
           <small class="muted">{t('settings.serverTokenHint')}</small>
         </label>
+        <label>
+          <span>{t('sync.profile')}</span>
+          <input
+            type="text"
+            pattern="[A-Za-z0-9_-]{1,40}"
+            value={s.syncProfile}
+            onChange={(e) => {
+              const v = e.currentTarget.value.trim();
+              if (/^[A-Za-z0-9_-]{1,40}$/.test(v)) updateSettings({ syncProfile: v });
+            }}
+          />
+          <small class="muted">{t('sync.profileHint')}</small>
+        </label>
+        <p class={`small ${sync.state === 'error' ? 'bad' : 'muted'}`}>
+          {sync.state === 'off'
+            ? t('sync.off')
+            : sync.state === 'syncing'
+              ? t('sync.syncing')
+              : sync.state === 'error'
+                ? t(sync.error === 'token' || sync.error === 'origin' ? `manage.error.${sync.error}` : 'sync.error', { message: sync.error ?? '' })
+                : t('sync.last', { time: sync.lastSync ? new Date(sync.lastSync).toLocaleTimeString(s.lang) : '' })}
+        </p>
+        <div class="row wrap">
+          <button type="button" onClick={() => (resetAvailability(), void syncNow())}>
+            ↻ {t('sync.now')}
+          </button>
+          <button type="button" onClick={copyLink}>
+            {t('sync.copyLink')}
+          </button>
+          {copied && <span class="ok small">{t('sync.copied')}</span>}
+        </div>
       </section>
       <section class="card">
         <h2>{t('settings.data')}</h2>

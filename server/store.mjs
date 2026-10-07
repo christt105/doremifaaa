@@ -33,7 +33,14 @@ export const MIGRATIONS = [
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
-  CREATE INDEX pieces_origin ON pieces (origin, origin_ref);`
+  CREATE INDEX pieces_origin ON pieces (origin, origin_ref);`,
+  `CREATE TABLE sync (
+    profile TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (profile, key)
+  );`
 ];
 
 export class StoreError extends Error {
