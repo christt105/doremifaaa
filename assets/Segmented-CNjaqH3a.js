@@ -1,0 +1,1 @@
+import{t as e}from"./jsxRuntime-DsR2fpur.js";function t({value:t,options:n,onChange:r,label:i}){return e(`div`,{class:`segmented`,role:`radiogroup`,"aria-label":i,children:n.map(n=>e(`button`,{type:`button`,role:`radio`,"aria-checked":n.value===t,class:n.value===t?`selected`:``,onClick:()=>r(n.value),children:n.label},String(n.value)))})}export{t};
