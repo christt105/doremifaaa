@@ -41,7 +41,7 @@ export function check(xml) {
   const times = new Set([...xml.matchAll(/<beats>(\d+)<\/beats>\s*<beat-type>(\d+)<\/beat-type>/g)].map((m) => `${m[1]}/${m[2]}`));
   const wrongLength = [];
   const emptyStaff = [];
-  const measures = xml.split(/<part\s+id=/).slice(1, 2).flatMap((part) => part.split(/<measure\b/).slice(1));
+  const measures = xml.split(/<part\s+id=/).slice(1, 2).flatMap((part) => part.split(/<measure(?=[\s>])/).slice(1));
   for (const m of measures) {
     const number = /number="([^"]+)"/.exec(m)?.[1] ?? '?';
     divisions = Number(/<divisions>(\d+)<\/divisions>/.exec(m)?.[1] ?? divisions);
