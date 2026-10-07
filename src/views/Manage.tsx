@@ -202,6 +202,9 @@ export function Manage({ route }: ViewProps) {
                 <a class="button primary" href={href('score', 'server', piece.id)}>
                   ▶ {t('library.play')}
                 </a>
+                <a class="button" href={href('edit', piece.id)}>
+                  ✎ {t('editor.open')}
+                </a>
                 <a class="button ghost" href={libraryUrl(piece.scoreUrl)} download={`${piece.title}.${piece.scoreFormat}`}>
                   {t('manage.download')}
                 </a>

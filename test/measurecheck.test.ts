@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { checkMeasures, measureContext, partMeasures, firstPart, summarize } from '../src/lib/measurecheck';
 import { readScoreXml } from '../src/lib/mxl';
+// @ts-expect-error plain ESM module without types
+import { check } from '../server/omrcheck.mjs';
 
 const REAL_DIR = '/home/bot/scratch/doremi-vault/Piano/Partituras/_musicxml/';
 const sample = (name: string) => readFileSync(`public/samples/${name}.musicxml`, 'utf8');
@@ -12,7 +14,8 @@ const ode = sample('ode-to-joy');
 const twinkle = sample('twinkle');
 
 describe('measure check', () => {
-  it('matches check.mjs on the bundled samples', () => {
+  it('matches the server check on the bundled samples', () => {
+    for (const xml of [minuet, ode, twinkle]) expect(summarize(parse(xml))).toEqual(check(xml));
     expect(summarize(parse(minuet))).toEqual({ keys: [1], times: ['3/4'], staves: 2, measures: 16, notes: 87, wrongLength: [], emptyStaff: [] });
     expect(summarize(parse(ode))).toEqual({ keys: [0], times: ['4/4'], staves: 2, measures: 8, notes: 59, wrongLength: [], emptyStaff: [] });
     expect(summarize(parse(twinkle))).toEqual({ keys: [0], times: ['4/4'], staves: 2, measures: 12, notes: 64, wrongLength: [], emptyStaff: [] });
@@ -109,8 +112,10 @@ describe('measure check', () => {
   const split = (s: string) => (s ? s.split(' ') : []);
 
   it.skipIf(!existsSync(REAL_DIR)).each(real)('matches check.mjs on the Audiveris output %s', async (file, measures, notes, wrong, empty, wrongWithForward) => {
-    const doc = parse(await readScoreXml(readFileSync(REAL_DIR + file)));
+    const xml = await readScoreXml(readFileSync(REAL_DIR + file));
+    const doc = parse(xml);
     const results = checkMeasures(doc);
+    expect(summarize(doc, results)).toEqual(check(xml));
     expect(summarize(doc, results)).toMatchObject({ staves: 2, measures, notes, wrongLength: split(wrong), emptyStaff: split(empty) });
     expect(checkMeasures(doc, { countForward: true }).filter((r) => r.wrongLength)).toHaveLength(wrongWithForward);
   });

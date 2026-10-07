@@ -1055,3 +1055,49 @@ th.num {
   border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
   padding: 0.7rem 1rem;
 }
+
+.editor-preview {
+  min-height: 8rem;
+  overflow-x: auto;
+  background: #fffdf8;
+}
+
+.editor-staff {
+  gap: 0.4rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+
+.editor-voice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.editor-notes {
+  gap: 0.35rem;
+}
+
+.editor-note {
+  min-height: 2.2rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.editor-note small {
+  color: var(--ink-2);
+}
+
+.editor-note.rest {
+  font-style: italic;
+}
+
+.editor-note.selected small {
+  color: inherit;
+}
+
+.editor-tools {
+  position: sticky;
+  bottom: 0.5rem;
+  z-index: 2;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
