@@ -1,8 +1,12 @@
 import { settings } from './settings';
 
+export type PieceLocation = 'store' | 'vault';
+export type PieceOrigin = 'upload' | 'vault' | 'omr';
+
 export interface ServerPiece {
   id: string;
   title: string;
+  composer?: string | null;
   status: string | null;
   difficulty: string | null;
   tags: string[];
@@ -10,18 +14,28 @@ export interface ServerPiece {
   video: string | null;
   startedAt: string | null;
   finishedAt: string | null;
-  notePath: string;
+  notes?: string | null;
+  location?: PieceLocation;
+  origin?: PieceOrigin | null;
+  originRef?: string | null;
+  editable?: boolean;
+  notePath: string | null;
+  obsidianUrl: string | null;
   hasScore: boolean;
   hasPdf: boolean;
+  hasOriginal?: boolean;
   scoreUrl: string | null;
   scoreFormat: string | null;
   pdfUrl: string | null;
-  obsidianUrl: string | null;
+  originalUrl?: string | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
 }
 
 export interface ServerLibrary {
   name: string;
   scannedAt: number;
+  store?: { enabled: boolean; auth: boolean };
   pieces: ServerPiece[];
 }
 
@@ -53,7 +67,7 @@ export async function fetchLibrary(refresh = false): Promise<ServerLibrary | nul
 
 export async function findServerPiece(id: string): Promise<ServerPiece | null> {
   const lib = await fetchLibrary();
-  return lib?.pieces.find((p) => p.id === id) ?? null;
+  return lib?.pieces.find((p) => p.id === id) ?? lib?.pieces.find((p) => p.origin === 'vault' && p.originRef === id) ?? null;
 }
 
 export const STATUS_ORDER = ['Learning', 'Not started', 'Mastered'];
