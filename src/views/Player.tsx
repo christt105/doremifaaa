@@ -205,9 +205,16 @@ export function Player({ route }: ViewProps) {
           <span class="small">
             {t(server.scoreOrigin === 'omr' ? 'omr.noticeConverted' : 'omr.notice', { n: issues.length, total: server.quality.measures, list: issues.slice(0, 8).join(', ') })}
           </span>
-          <button class="ghost small" onClick={() => setHideQuality(true)}>
-            {t('omr.dismiss')}
-          </button>
+          <span class="row wrap">
+            {server.editable && (
+              <a class="button small" href={href('edit', server.id)}>
+                ✎ {t('editor.open')}
+              </a>
+            )}
+            <button class="ghost small" onClick={() => setHideQuality(true)}>
+              {t('omr.dismiss')}
+            </button>
+          </span>
         </div>
       )}
 

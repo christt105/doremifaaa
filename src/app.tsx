@@ -21,6 +21,7 @@ const Library = lazyView(() => import('./views/Library').then((m) => m.Library))
 const Player = lazyView(() => import('./views/Player').then((m) => m.Player));
 const PdfViewer = lazyView(() => import('./views/PdfViewer').then((m) => m.PdfViewer));
 const PieceLink = lazyView(() => import('./views/PieceLink').then((m) => m.PieceLink));
+const Editor = lazyView(() => import('./views/Editor').then((m) => m.Editor));
 const Manage = lazyView(() => import('./views/Manage').then((m) => m.Manage));
 const Stats = lazyView(() => import('./views/Stats').then((m) => m.Stats));
 
@@ -33,6 +34,7 @@ const NAV: NavItem[] = [
   { path: 'pdf', label: 'nav.library', icon: '❏', view: PdfViewer, hidden: true },
   { path: 'piece', label: 'nav.library', icon: '❏', view: PieceLink, hidden: true },
   { path: 'manage', label: 'nav.library', icon: '❏', view: Manage, hidden: true },
+  { path: 'edit', label: 'nav.library', icon: '❏', view: Editor, hidden: true },
   { path: 'stats', label: 'nav.stats', icon: '▤', view: Stats },
   { path: 'settings', label: 'nav.settings', icon: '⚙', view: SettingsView }
 ];
@@ -51,7 +53,7 @@ export function App() {
         </a>
         <nav class="nav">
           {NAV.filter((n) => !n.hidden).map((n) => (
-            <a key={n.path} href={href(n.path)} title={t(n.label)} class={n.path === current?.path || (n.path === 'library' && ['score', 'pdf', 'piece', 'manage'].includes(current?.path ?? '')) ? 'active' : ''}>
+            <a key={n.path} href={href(n.path)} title={t(n.label)} class={n.path === current?.path || (n.path === 'library' && ['score', 'pdf', 'piece', 'manage', 'edit'].includes(current?.path ?? '')) ? 'active' : ''}>
               <span class="nav-icon" aria-hidden="true">
                 {n.icon}
               </span>
