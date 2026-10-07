@@ -1,11 +1,76 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { hasKey, useT } from '../i18n';
 import { STATUS_ORDER, fetchLibrary, type ServerLibrary, type ServerPiece } from '../lib/library';
-import { deleteLocal, listLocal, type LocalPiece } from '../lib/localdb';
-import { FILE_ACCEPT, importFile, listSamples, type Sample } from '../lib/sources';
+import { uploadPiece } from '../lib/api';
+import { deleteLocal, getLocal, listLocal, type LocalPiece } from '../lib/localdb';
+import { FILE_ACCEPT, fileKind, importFile, listSamples, type Sample } from '../lib/sources';
 import { href } from '../router';
+import { errorText } from './Manage';
 
 type LocalMeta = Omit<LocalPiece, 'data'>;
+
+interface Upload {
+  name: string;
+  state: 'sending' | 'done' | 'error';
+  text?: string;
+}
+
+function ServerUpload({ onDone }: { onDone: () => void }) {
+  const t = useT();
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  const send = async (files: FileList | null | undefined) => {
+    if (!files?.length) return;
+    const list = [...files];
+    const state: Upload[] = list.map((f) => ({ name: f.name, state: 'sending' }));
+    setUploads([...state]);
+    for (const [i, f] of list.entries()) {
+      if (!fileKind(f.name)) state[i] = { name: f.name, state: 'error', text: t('library.notSupported', { name: f.name }) };
+      else
+        try {
+          await uploadPiece(f, f.name);
+          state[i] = { name: f.name, state: 'done' };
+        } catch (e) {
+          state[i] = { name: f.name, state: 'error', text: errorText(t, e) };
+        }
+      setUploads([...state]);
+    }
+    onDone();
+  };
+
+  return (
+    <div
+      class={`card dropzone ${dragging ? 'dragging' : ''}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void send(e.dataTransfer?.files);
+      }}
+    >
+      <button class="primary" onClick={() => input.current?.click()}>
+        ⇪ {t('manage.upload')}
+      </button>
+      <span class="muted small">{t('manage.uploadHint')}</span>
+      <input ref={input} type="file" multiple accept={FILE_ACCEPT} hidden onChange={(e) => (void send(e.currentTarget.files), (e.currentTarget.value = ''))} />
+      {uploads.length > 0 && (
+        <ul class="upload-list small">
+          {uploads.map((u, i) => (
+            <li key={i} class={u.state === 'error' ? 'bad' : u.state === 'done' ? 'ok' : 'muted'}>
+              {u.name}: {u.state === 'error' ? u.text : t(`manage.upload.${u.state}`)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () => void }) {
   const t = useT();
@@ -33,6 +98,7 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
         </div>
         <button onClick={onRefresh}>↻ {t('library.refresh')}</button>
       </div>
+      {lib.store?.enabled && <ServerUpload onDone={onRefresh} />}
       <div class="row wrap">
         <input type="search" class="grow" placeholder={t('library.search')} value={query} onInput={(e) => setQuery(e.currentTarget.value)} style={{ maxWidth: '22rem' }} />
         <div class="segmented">
@@ -85,6 +151,13 @@ function ServerSection({ lib, onRefresh }: { lib: ServerLibrary; onRefresh: () =
                   {t('library.sourceLink')}
                 </a>
               )}
+              {p.editable ? (
+                <a class="button ghost" href={href('manage', p.id)}>
+                  ✎ {t('manage.edit')}
+                </a>
+              ) : (
+                lib.store?.enabled && <span class="muted small" title={t('manage.vaultHint')}>{t('manage.fromVault')}</span>
+              )}
             </span>
           </div>
         ))}
@@ -101,6 +174,7 @@ export function Library() {
   const [message, setMessage] = useState('');
   const [dragging, setDragging] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [moved, setMoved] = useState<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
   const reloadLocal = () => void listLocal().then(setLocal);
@@ -124,6 +198,19 @@ export function Library() {
     setMessage(rejected.map((name) => t('library.notSupported', { name })).join(' '));
     reloadLocal();
     if (last && list.length === 1) location.hash = href(last.kind === 'score' ? 'score' : 'pdf', 'local', last.id);
+  };
+
+  const toServer = async (p: LocalMeta) => {
+    setMessage('');
+    try {
+      const full = await getLocal(p.id);
+      if (!full) return;
+      await uploadPiece(new Blob([full.data]), p.fileName, p.title);
+      setMoved((m) => [...m, p.id]);
+      setLib(await fetchLibrary(true));
+    } catch (e) {
+      setMessage(errorText(t, e));
+    }
   };
 
   return (
@@ -179,6 +266,14 @@ export function Library() {
                   <a class={`button ${p.kind === 'score' ? 'primary' : ''}`} href={href(p.kind === 'score' ? 'score' : 'pdf', 'local', p.id)}>
                     {p.kind === 'score' ? `▶ ${t('library.play')}` : t('library.pdf')}
                   </a>
+                  {lib?.store?.enabled &&
+                    (moved.includes(p.id) ? (
+                      <span class="ok small">{t('manage.uploaded')}</span>
+                    ) : (
+                      <button class="ghost" onClick={() => void toServer(p)}>
+                        ⇪ {t('manage.toServer')}
+                      </button>
+                    ))}
                   <button
                     class={confirm === p.id ? 'danger' : 'ghost'}
                     onClick={() => {
@@ -187,7 +282,7 @@ export function Library() {
                       void deleteLocal(p.id).then(reloadLocal);
                     }}
                   >
-                    {confirm === p.id ? t('library.confirmDelete') : t('library.delete')}
+                    {confirm === p.id ? t('library.confirmDelete') : moved.includes(p.id) ? t('manage.deleteLocalCopy') : t('library.delete')}
                   </button>
                 </span>
               </div>

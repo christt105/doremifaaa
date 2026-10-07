@@ -134,6 +134,11 @@ export function SettingsView() {
           />
           <small class="muted">{t('settings.libraryHint')}</small>
         </label>
+        <label>
+          <span>{t('settings.serverToken')}</span>
+          <input type="password" autocomplete="off" value={s.serverToken} onChange={(e) => updateSettings({ serverToken: e.currentTarget.value.trim() })} />
+          <small class="muted">{t('settings.serverTokenHint')}</small>
+        </label>
       </section>
       <section class="card">
         <h2>{t('settings.data')}</h2>
