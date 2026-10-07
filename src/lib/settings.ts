@@ -15,6 +15,7 @@ export interface Settings {
   keyboardOctave: number;
   micEnabled: boolean;
   libraryUrl: string;
+  serverToken: string;
   showNoteNames: boolean;
 }
 
@@ -32,6 +33,7 @@ function defaults(): Settings {
     keyboardOctave: 4,
     micEnabled: false,
     libraryUrl: '',
+    serverToken: '',
     showNoteNames: false
   };
 }
