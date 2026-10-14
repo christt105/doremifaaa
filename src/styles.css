@@ -979,6 +979,85 @@ th.num {
   }
 }
 
+html:has(.player) {
+  --player-top: 4rem;
+  --player-nav: 0rem;
+  --player-keys: 0rem;
+  scroll-padding-top: var(--player-top);
+  scroll-padding-bottom: calc(var(--player-nav) + var(--player-keys));
+}
+
+html:has(.player-keys) {
+  --player-keys: clamp(5.5rem, 14vw, 8.5rem);
+}
+
+.player-keys .piano {
+  height: var(--player-keys);
+}
+
+.toolbar-extra {
+  gap: 0.6rem 1rem;
+}
+
+.toolbar-more {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  html:has(.player) {
+    --player-nav: 4rem;
+  }
+
+  .toolbar-more {
+    display: inline-flex;
+  }
+
+  .toolbar-extra:not(.open) {
+    display: none;
+  }
+}
+
+@media (max-height: 500px) {
+  html:has(.player-keys) {
+    --player-keys: 4.5rem;
+  }
+}
+
+.focus-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 0.5rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.3rem) 0 0.3rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+html.focus-score {
+  --player-top: 3.5rem;
+  --player-nav: 0rem;
+}
+
+html.focus-score:fullscreen {
+  padding: 0;
+}
+
+.focus-score .topbar,
+.focus-score .player-head,
+.focus-score .player .toolbar,
+.focus-score .player .notice {
+  display: none;
+}
+
+.focus-score .content {
+  max-width: none;
+  padding: 0 0.5rem;
+}
+
+.focus-score .player-keys {
+  bottom: 0;
+}
+
 .pdf-pages {
   display: flex;
   flex-direction: column;

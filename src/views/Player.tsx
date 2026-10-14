@@ -21,6 +21,7 @@ interface Prefs {
   hand: Hand;
   zoom: number;
   hint: boolean;
+  keys: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -32,7 +33,7 @@ export function Player({ route }: ViewProps) {
   const t = useT();
   const { feedbackSounds } = useStore(settings);
   const [source, id] = route.params;
-  const [prefs, setPrefs] = useState<Prefs>({ hand: 'both', zoom: 1, hint: false, ...load<Partial<Prefs>>(PREFS, {}) });
+  const [prefs, setPrefs] = useState<Prefs>({ hand: 'both', zoom: 1, hint: false, keys: true, ...load<Partial<Prefs>>(PREFS, {}) });
   const [title, setTitle] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -43,6 +44,8 @@ export function Player({ route }: ViewProps) {
   const [lastWrong, setLastWrong] = useState<number | null>(null);
   const [server, setServer] = useState<ServerPiece | null>(null);
   const [hideQuality, setHideQuality] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const [more, setMore] = useState(false);
 
   useEffect(() => {
     setServer(null);
@@ -151,6 +154,40 @@ export function Player({ route }: ViewProps) {
   );
 
   useEffect(() => {
+    if (!focus) return;
+    const root = document.documentElement;
+    root.classList.add('focus-score');
+    let wasFull = false;
+    const onChange = () => {
+      if (document.fullscreenElement) wasFull = true;
+      else if (wasFull) setFocus(false);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    if (!document.fullscreenElement) void root.requestFullscreen?.()?.catch(() => undefined);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      root.classList.remove('focus-score');
+      if (document.fullscreenElement === root) void document.exitFullscreen?.()?.catch(() => undefined);
+    };
+  }, [focus]);
+
+  useEffect(() => {
+    if (status !== 'ready' || !host.current) return;
+    let timer = 0;
+    const reveal = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => osmd.current?.cursor.cursorElement?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
+    };
+    const observer = new ResizeObserver(reveal);
+    observer.observe(host.current);
+    reveal();
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [status, focus, prefs.keys]);
+
+  useEffect(() => {
     if (!flash) return;
     const timer = setTimeout(() => setFlash(null), 220);
     return () => clearTimeout(timer);
@@ -183,9 +220,47 @@ export function Player({ route }: ViewProps) {
   }
   if (lastWrong !== null) marks.set(lastWrong, 'bad');
 
+  const zoomBy = (delta: number) => redraw(updatePrefs({ zoom: Math.min(2, Math.max(0.5, +(prefs.zoom + delta).toFixed(2))) }).zoom);
+  const zoomButtons = (
+    <div class="row" role="group" aria-label={t('player.zoom')}>
+      <button class="ghost" onClick={() => zoomBy(-0.1)}>
+        A−
+      </button>
+      <button class="ghost" onClick={() => zoomBy(0.1)}>
+        A+
+      </button>
+    </div>
+  );
+  const keysToggle = (label: boolean) => (
+    <button
+      class={prefs.keys ? 'selected' : 'ghost'}
+      aria-pressed={prefs.keys}
+      aria-label={t('player.keyboard')}
+      title={t('player.keyboard')}
+      onClick={() => updatePrefs({ keys: !prefs.keys })}
+    >
+      🎹{label && ` ${t('player.keyboard')}`}
+    </button>
+  );
+
   return (
     <div class="stack player">
-      <div class="row spread wrap">
+      {focus && (
+        <div class="focus-bar row spread">
+          <button class="ghost" onClick={() => setFocus(false)} aria-label={t('player.focusExit')} title={t('player.focusExit')}>
+            ✕
+          </button>
+          {f && status === 'ready' && <span class="badge">{t('player.measure', { n: f.measure + 1, total: totalMeasures.current })}</span>}
+          <div class="row">
+            {zoomButtons}
+            <button class="ghost" onClick={restart} aria-label={t('player.restart')} title={t('player.restart')}>
+              ⏮
+            </button>
+            {keysToggle(false)}
+          </div>
+        </div>
+      )}
+      <div class="row spread wrap player-head">
         <div>
           <a href={href('library')} class="small">
             ← {t('nav.library')}
@@ -196,6 +271,9 @@ export function Player({ route }: ViewProps) {
           <div class="row wrap">
             <span class="badge">{t('player.measure', { n: f.measure + 1, total: totalMeasures.current })}</span>
             <span class="badge">{t('player.wrongs', { n: f.wrongTotal })}</span>
+            <button class="ghost small" onClick={() => setFocus(true)}>
+              ⛶ {t('player.focus')}
+            </button>
           </div>
         )}
       </div>
@@ -233,40 +311,39 @@ export function Player({ route }: ViewProps) {
             { value: 'left', label: t('player.left') }
           ]}
         />
-        <div class="row" role="group" aria-label={t('player.zoom')}>
-          <button class="ghost" onClick={() => redraw(updatePrefs({ zoom: Math.max(0.5, +(prefs.zoom - 0.1).toFixed(2)) }).zoom)}>
-            A−
-          </button>
-          <button class="ghost" onClick={() => redraw(updatePrefs({ zoom: Math.min(2, +(prefs.zoom + 0.1).toFixed(2)) }).zoom)}>
-            A+
-          </button>
-        </div>
+        {zoomButtons}
         <button onClick={restart}>⏮ {t('player.restart')}</button>
-        <label class="row small">
-          <input type="checkbox" checked={prefs.hint} onChange={(e) => updatePrefs({ hint: e.currentTarget.checked })} />
-          {t('player.hint')}
-        </label>
-        <div class="row small wrap">
-          <span>{t('player.loop')}:</span>
-          <input
-            type="number"
-            min={1}
-            max={totalMeasures.current}
-            value={loopInput.from}
-            style={{ width: '4.5rem' }}
-            onChange={(e) => setLoopInput({ ...loopInput, from: Number(e.currentTarget.value) })}
-          />
-          <span>{t('player.loopTo')}</span>
-          <input
-            type="number"
-            min={loopInput.from}
-            max={totalMeasures.current}
-            value={loopInput.to}
-            style={{ width: '4.5rem' }}
-            onChange={(e) => setLoopInput({ ...loopInput, to: Number(e.currentTarget.value) })}
-          />
-          <button onClick={() => applyLoop({ from: Math.max(1, loopInput.from), to: Math.max(loopInput.from, loopInput.to) })}>↻</button>
-          {loop && <button onClick={() => applyLoop(null)}>{t('player.loopOff')}</button>}
+        {keysToggle(true)}
+        <button class="ghost toolbar-more" aria-expanded={more} onClick={() => setMore(!more)}>
+          {more ? t('player.less') : t('player.more')}
+        </button>
+        <div class={`row wrap toolbar-extra ${more ? 'open' : ''}`}>
+          <label class="row small">
+            <input type="checkbox" checked={prefs.hint} onChange={(e) => updatePrefs({ hint: e.currentTarget.checked })} />
+            {t('player.hint')}
+          </label>
+          <div class="row small wrap">
+            <span>{t('player.loop')}:</span>
+            <input
+              type="number"
+              min={1}
+              max={totalMeasures.current}
+              value={loopInput.from}
+              style={{ width: '4.5rem' }}
+              onChange={(e) => setLoopInput({ ...loopInput, from: Number(e.currentTarget.value) })}
+            />
+            <span>{t('player.loopTo')}</span>
+            <input
+              type="number"
+              min={loopInput.from}
+              max={totalMeasures.current}
+              value={loopInput.to}
+              style={{ width: '4.5rem' }}
+              onChange={(e) => setLoopInput({ ...loopInput, to: Number(e.currentTarget.value) })}
+            />
+            <button onClick={() => applyLoop({ from: Math.max(1, loopInput.from), to: Math.max(loopInput.from, loopInput.to) })}>↻</button>
+            {loop && <button onClick={() => applyLoop(null)}>{t('player.loopOff')}</button>}
+          </div>
         </div>
       </div>
 
@@ -297,9 +374,11 @@ export function Player({ route }: ViewProps) {
       <div class={`score paper ${flash ? `flash-${flash}` : ''}`} hidden={status === 'error'}>
         <div ref={host} />
       </div>
-      <div class="player-keys">
-        <PianoKeyboard low={36} high={96} marks={marks} />
-      </div>
+      {prefs.keys && (
+        <div class="player-keys">
+          <PianoKeyboard low={36} high={96} marks={marks} follow={f?.expected} />
+        </div>
+      )}
     </div>
   );
 }
