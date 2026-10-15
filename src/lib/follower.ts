@@ -3,11 +3,14 @@ export type Hand = 'both' | 'right' | 'left';
 export interface StepNote {
   midi: number;
   hand: 'right' | 'left' | 'any';
+  length: number;
 }
 
 export interface Step {
   notes: StepNote[];
   measure: number;
+  time: number;
+  bpm: number;
 }
 
 export type FollowEvent =
@@ -55,6 +58,12 @@ export class Follower {
     if (!this.loop) return 0;
     const i = this.steps.findIndex((s) => s.measure >= this.loop!.from);
     return i < 0 ? 0 : i;
+  }
+
+  bounds(): { from: number; to: number } {
+    if (!this.loop) return { from: 0, to: this.steps.length };
+    const end = this.steps.findIndex((s) => s.measure > this.loop!.to);
+    return { from: this.startIndex(), to: end < 0 ? this.steps.length : end };
   }
 
   private firstPlayable(from: number): number {

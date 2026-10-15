@@ -38,10 +38,11 @@ export function extractSteps(cursor: Cursor): Step[] {
         const staff = n.ParentStaff;
         const staves = staff.ParentInstrument.Staves;
         const hand = staves.length < 2 ? 'any' : staves.indexOf(staff) === 0 ? 'right' : 'left';
-        notes.push({ midi: n.halfTone + 12, hand });
+        const length = (n.NoteTie ? n.NoteTie.Duration : n.Length).RealValue;
+        notes.push({ midi: n.halfTone + 12, hand, length });
       }
     }
-    steps.push({ notes, measure: it.CurrentMeasureIndex });
+    steps.push({ notes, measure: it.CurrentMeasureIndex, time: it.CurrentEnrolledTimestamp.RealValue, bpm: it.CurrentBpm || 100 });
     cursor.next();
   }
   cursor.reset();
