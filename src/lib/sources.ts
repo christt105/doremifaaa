@@ -43,7 +43,7 @@ export async function importFile(file: File): Promise<{ id: string; kind: 'score
 
 export async function listSamples(): Promise<Sample[]> {
   try {
-    const res = await fetch('./samples/index.json');
+    const res = await fetch(`${import.meta.env.BASE_URL}samples/index.json`);
     return res.ok ? res.json() : [];
   } catch {
     return [];

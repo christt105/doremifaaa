@@ -100,19 +100,20 @@ describe('sync merge', () => {
 });
 
 describe('setup link', () => {
-  it('reads the server and profile from the hash or the query and cleans the URL', () => {
-    expect(setupParams('https://a.io/app/#/?server=http://192.168.1.15:8095/&profile=deck')).toEqual({
+  it('reads the server and profile from the query and cleans the URL', () => {
+    expect(setupParams('https://a.io/app/?server=http://192.168.1.15:8095/&profile=deck', '/app/')).toEqual({
       params: { server: 'http://192.168.1.15:8095', profile: 'deck' },
-      clean: 'https://a.io/app/#/settings'
+      clean: 'https://a.io/app/settings'
     });
-    expect(setupParams('https://a.io/app/?server=http://h:1#/library')?.clean).toBe('https://a.io/app/#/library');
-    expect(setupParams('https://a.io/app/#/library')).toBeNull();
-    expect(setupParams('https://a.io/#/?profile=../x')).toBeNull();
+    expect(setupParams('https://a.io/app/library?server=http://h:1', '/app/')?.clean).toBe('https://a.io/app/library');
+    expect(setupParams('https://a.io/app/library', '/app/')).toBeNull();
+    expect(setupParams('https://a.io/?profile=../x', '/')).toBeNull();
   });
 
   it('builds a link that round trips', () => {
-    const link = setupLink('https://a.io/app/#/settings', 'http://192.168.1.15:8095', 'deck');
-    expect(setupParams(link)?.params).toEqual({ server: 'http://192.168.1.15:8095', profile: 'deck' });
-    expect(setupParams(setupLink('http://192.168.1.15:8095/#/settings', '', 'default'))?.params).toEqual({ server: 'http://192.168.1.15:8095' });
+    const link = setupLink('https://a.io/app/settings', 'http://192.168.1.15:8095', 'deck', '/app/');
+    expect(link).toBe('https://a.io/app/?server=http%3A%2F%2F192.168.1.15%3A8095&profile=deck');
+    expect(setupParams(link, '/app/')?.params).toEqual({ server: 'http://192.168.1.15:8095', profile: 'deck' });
+    expect(setupParams(setupLink('http://192.168.1.15:8095/settings', '', 'default', '/'), '/')?.params).toEqual({ server: 'http://192.168.1.15:8095' });
   });
 });

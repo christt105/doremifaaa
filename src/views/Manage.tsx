@@ -3,7 +3,7 @@ import { hasKey, useT } from '../i18n';
 import { ApiError, deleteFile, deletePiece, diffMeta, getPiece, metaOf, parseTags, patchPiece, putFile, type PieceMeta } from '../lib/api';
 import { fetchLibrary, libraryUrl, type ServerPiece } from '../lib/library';
 import { FILE_ACCEPT, fileKind } from '../lib/sources';
-import { href, type ViewProps } from '../router';
+import { href, navigate, type ViewProps } from '../router';
 
 const STATUSES = ['Not started', 'Learning', 'Mastered'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
@@ -117,7 +117,7 @@ export function Manage({ route }: ViewProps) {
     deletePiece(piece.id)
       .then(() => {
         void fetchLibrary(true);
-        location.hash = href('library');
+        navigate(href('library'));
       })
       .catch((e) => {
         setBusy(false);
