@@ -5,7 +5,7 @@ import { isBlackKey, midiName } from '../lib/music';
 import { settings } from '../lib/settings';
 import { useStore } from '../lib/store';
 
-export type KeyMark = 'ok' | 'bad' | 'hint';
+export type KeyMark = 'ok' | 'bad' | 'hint' | 'play';
 
 interface Props {
   low?: number;

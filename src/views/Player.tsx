@@ -12,6 +12,7 @@ import { load, save } from '../lib/storage';
 import { useStore } from '../lib/store';
 import * as synth from '../lib/synth';
 import { href, type ViewProps } from '../router';
+import { ScorePlayback, segment } from '../lib/playback';
 import { issueMeasures } from '../components/QualityBadge';
 import { findServerPiece, type ServerPiece } from '../lib/library';
 
@@ -22,6 +23,7 @@ interface Prefs {
   zoom: number;
   hint: boolean;
   keys: boolean;
+  speed: number;
 }
 
 function formatTime(ms: number): string {
@@ -33,7 +35,7 @@ export function Player({ route }: ViewProps) {
   const t = useT();
   const { feedbackSounds } = useStore(settings);
   const [source, id] = route.params;
-  const [prefs, setPrefs] = useState<Prefs>({ hand: 'both', zoom: 1, hint: false, keys: true, ...load<Partial<Prefs>>(PREFS, {}) });
+  const [prefs, setPrefs] = useState<Prefs>({ hand: 'both', zoom: 1, hint: false, keys: true, speed: 1, ...load<Partial<Prefs>>(PREFS, {}) });
   const [title, setTitle] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
@@ -46,6 +48,9 @@ export function Player({ route }: ViewProps) {
   const [hideQuality, setHideQuality] = useState(false);
   const [focus, setFocus] = useState(false);
   const [more, setMore] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [heard, setHeard] = useState<number[]>([]);
+  const [playIndex, setPlayIndex] = useState(-1);
 
   useEffect(() => {
     setServer(null);
@@ -60,6 +65,7 @@ export function Player({ route }: ViewProps) {
   const startedAt = useRef(0);
   const finishedIn = useRef(0);
   const totalMeasures = useRef(1);
+  const playback = useRef<ScorePlayback | null>(null);
   const rerender = () => setTick((n) => n + 1);
 
   const updatePrefs = (patch: Partial<Prefs>) => {
@@ -119,6 +125,9 @@ export function Player({ route }: ViewProps) {
     })();
     return () => {
       cancelled = true;
+      playback.current?.stop();
+      setPlaying(false);
+      setHeard([]);
       osmd.current?.clear();
       osmd.current = null;
       follower.current = null;
@@ -130,7 +139,7 @@ export function Player({ route }: ViewProps) {
       bus.onNote((e) => {
         const f = follower.current;
         const o = osmd.current;
-        if (e.type !== 'on' || !f || !o) return;
+        if (e.type !== 'on' || !f || !o || playback.current?.playing) return;
         if (startedAt.current === 0) startedAt.current = performance.now();
         const ev = f.noteOn(e.midi);
         if (ev.kind === 'advance' || ev.kind === 'loop' || ev.kind === 'done') {
@@ -194,8 +203,55 @@ export function Player({ route }: ViewProps) {
   }, [flash]);
 
   const f = follower.current;
+
+  const stopPlayback = () => {
+    const index = playback.current?.stop() ?? -1;
+    setPlaying(false);
+    setHeard([]);
+    setPlayIndex(-1);
+    return index;
+  };
+
+  const pausePlayback = () => {
+    const index = stopPlayback();
+    if (f && index >= 0) syncCursor(f.seek(index));
+    rerender();
+  };
+
+  const startPlayback = (speed = prefs.speed) => {
+    if (!f) return;
+    if (f.done) restart();
+    const { from, to } = f.bounds();
+    const start = Math.max(from, Math.min(f.index, to - 1));
+    const hand = f.hand;
+    playback.current ??= new ScorePlayback({
+      step: (index, notes) => {
+        syncCursor(index);
+        setPlayIndex(index);
+        setHeard(notes);
+      },
+      finished: () => {
+        setPlaying(false);
+        setHeard([]);
+        syncCursor(follower.current?.index ?? 0);
+      }
+    });
+    playback.current.play(segment(f.steps, start, to, hand, speed), f.loop ? () => segment(f.steps, from, to, hand, speed) : null);
+    setPlaying(playback.current.playing);
+  };
+
+  const togglePlayback = () => (playing ? pausePlayback() : startPlayback());
+
+  const changeSpeed = (speed: number) => {
+    updatePrefs({ speed });
+    if (!playing) return;
+    pausePlayback();
+    startPlayback(speed);
+  };
+
   const restart = () => {
     if (!f) return;
+    stopPlayback();
     f.restart();
     startedAt.current = 0;
     setLastWrong(null);
@@ -205,6 +261,7 @@ export function Player({ route }: ViewProps) {
 
   const applyLoop = (next: { from: number; to: number } | null) => {
     if (!f) return;
+    stopPlayback();
     setLoop(next);
     f.setLoop(next ? { from: next.from - 1, to: next.to - 1 } : null);
     startedAt.current = 0;
@@ -213,14 +270,20 @@ export function Player({ route }: ViewProps) {
     rerender();
   };
 
+  const shownMeasure = (playing ? f?.steps[playIndex]?.measure : undefined) ?? f?.measure ?? 0;
+
   const marks = new Map<number, KeyMark>();
-  if (f) {
+  if (playing) heard.forEach((m) => marks.set(m, 'play'));
+  else if (f) {
     if (prefs.hint) f.expected.forEach((m) => marks.set(m, 'hint'));
     f.got.forEach((m) => marks.set(m, 'ok'));
   }
-  if (lastWrong !== null) marks.set(lastWrong, 'bad');
+  if (lastWrong !== null && !playing) marks.set(lastWrong, 'bad');
 
-  const zoomBy = (delta: number) => redraw(updatePrefs({ zoom: Math.min(2, Math.max(0.5, +(prefs.zoom + delta).toFixed(2))) }).zoom);
+  const zoomBy = (delta: number) => {
+    if (playing) pausePlayback();
+    redraw(updatePrefs({ zoom: Math.min(2, Math.max(0.5, +(prefs.zoom + delta).toFixed(2))) }).zoom);
+  };
   const zoomButtons = (
     <div class="row" role="group" aria-label={t('player.zoom')}>
       <button class="ghost" onClick={() => zoomBy(-0.1)}>
@@ -230,6 +293,12 @@ export function Player({ route }: ViewProps) {
         A+
       </button>
     </div>
+  );
+  const playButton = (label: boolean) => (
+    <button class="primary" onClick={togglePlayback} aria-label={t(playing ? 'player.pause' : 'player.play')} title={t(playing ? 'player.pause' : 'player.play')}>
+      {playing ? '⏸' : '▶'}
+      {label && ` ${t(playing ? 'player.pause' : 'player.play')}`}
+    </button>
   );
   const keysToggle = (label: boolean) => (
     <button
@@ -250,8 +319,13 @@ export function Player({ route }: ViewProps) {
           <button class="ghost" onClick={() => setFocus(false)} aria-label={t('player.focusExit')} title={t('player.focusExit')}>
             ✕
           </button>
-          {f && status === 'ready' && <span class="badge">{t('player.measure', { n: f.measure + 1, total: totalMeasures.current })}</span>}
+          {f && status === 'ready' && (
+            <span class="badge" title={t('player.measure', { n: shownMeasure + 1, total: totalMeasures.current })}>
+              {shownMeasure + 1}/{totalMeasures.current}
+            </span>
+          )}
           <div class="row">
+            {playButton(false)}
             {zoomButtons}
             <button class="ghost" onClick={restart} aria-label={t('player.restart')} title={t('player.restart')}>
               ⏮
@@ -269,7 +343,7 @@ export function Player({ route }: ViewProps) {
         </div>
         {f && status === 'ready' && (
           <div class="row wrap">
-            <span class="badge">{t('player.measure', { n: f.measure + 1, total: totalMeasures.current })}</span>
+            <span class="badge">{t('player.measure', { n: shownMeasure + 1, total: totalMeasures.current })}</span>
             <span class="badge">{t('player.wrongs', { n: f.wrongTotal })}</span>
             <button class="ghost small" onClick={() => setFocus(true)}>
               ⛶ {t('player.focus')}
@@ -301,6 +375,7 @@ export function Player({ route }: ViewProps) {
           label={t('player.hands')}
           value={prefs.hand}
           onChange={(hand) => {
+            if (playing) pausePlayback();
             updatePrefs({ hand });
             if (f) syncCursor(f.setHand(hand));
             rerender();
@@ -311,6 +386,8 @@ export function Player({ route }: ViewProps) {
             { value: 'left', label: t('player.left') }
           ]}
         />
+        {playButton(true)}
+        <Segmented<number> label={t('player.speed')} value={prefs.speed} onChange={changeSpeed} options={[0.5, 0.75, 1].map((v) => ({ value: v, label: `${v * 100} %` }))} />
         {zoomButtons}
         <button onClick={restart}>⏮ {t('player.restart')}</button>
         {keysToggle(true)}
@@ -376,7 +453,7 @@ export function Player({ route }: ViewProps) {
       </div>
       {prefs.keys && (
         <div class="player-keys">
-          <PianoKeyboard low={36} high={96} marks={marks} follow={f?.expected} />
+          <PianoKeyboard low={36} high={96} marks={marks} follow={playing ? heard : f?.expected} />
         </div>
       )}
     </div>

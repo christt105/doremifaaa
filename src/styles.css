@@ -575,6 +575,10 @@ input[type='range'] {
   background: #ffd76a !important;
 }
 
+.key.mark-play {
+  background: #8ea4ff !important;
+}
+
 .segmented {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1031,6 +1035,15 @@ html:has(.player-keys) {
   padding: calc(env(safe-area-inset-top, 0px) + 0.3rem) 0 0.3rem;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+}
+
+.focus-bar .row {
+  gap: 0.3rem;
+}
+
+.focus-bar button {
+  min-width: 2.4rem;
+  padding: 0.35rem 0.55rem;
 }
 
 html.focus-score {

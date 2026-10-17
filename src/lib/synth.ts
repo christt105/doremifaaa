@@ -1,6 +1,13 @@
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-const voices = new Map<number, { gain: GainNode; oscs: OscillatorNode[] }>();
+interface Voice {
+  gain: GainNode;
+  oscs: OscillatorNode[];
+  at: number;
+}
+
+const voices = new Map<number, Voice>();
+const scheduled = new Set<Voice>();
 
 function audio(): { ctx: AudioContext; master: GainNode } {
   if (!ctx || !master) {
@@ -22,10 +29,8 @@ function freq(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-export function noteOn(midi: number, velocity = 90): void {
-  noteOff(midi, 0.02);
+function voice(midi: number, velocity: number, t: number, stopAt = t + 3.6): Voice {
   const { ctx, master } = audio();
-  const t = ctx.currentTime;
   const gain = ctx.createGain();
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
@@ -48,11 +53,47 @@ export function noteOn(midi: number, velocity = 90): void {
     g.gain.value = level;
     osc.connect(g).connect(filter);
     osc.start(t);
-    osc.stop(t + 3.6);
+    osc.stop(stopAt);
     return osc;
   });
   filter.connect(gain).connect(master);
-  voices.set(midi, { gain, oscs });
+  return { gain, oscs, at: t };
+}
+
+export function noteOn(midi: number, velocity = 90): void {
+  noteOff(midi, 0.02);
+  const { ctx } = audio();
+  voices.set(midi, voice(midi, velocity, ctx.currentTime));
+}
+
+export function schedule(midi: number, at: number, duration: number, velocity = 80): void {
+  const end = at + Math.max(0.05, duration);
+  const v = voice(midi, velocity, at, Math.min(at + 3.6, end + 0.4));
+  const g = v.gain.gain;
+  if (end < at + 3.5) {
+    if (typeof g.cancelAndHoldAtTime === 'function') g.cancelAndHoldAtTime(end);
+    else g.cancelScheduledValues(end);
+    g.setTargetAtTime(0, end, 0.06);
+  }
+  scheduled.add(v);
+  v.oscs[0].onended = () => scheduled.delete(v);
+}
+
+export function silence(): void {
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  for (const v of scheduled) {
+    if (v.at > now) {
+      v.gain.disconnect();
+      continue;
+    }
+    const g = v.gain.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(0, now + 0.04);
+    setTimeout(() => v.gain.disconnect(), 80);
+  }
+  scheduled.clear();
 }
 
 export function noteOff(midi: number, release = 0.25): void {

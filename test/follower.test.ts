@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { Follower, type Step } from '../src/lib/follower';
 
-const R = (midi: number) => ({ midi, hand: 'right' as const });
-const L = (midi: number) => ({ midi, hand: 'left' as const });
+const R = (midi: number) => ({ midi, hand: 'right' as const, length: 0.25 });
+const L = (midi: number) => ({ midi, hand: 'left' as const, length: 0.25 });
 
 const steps: Step[] = [
-  { notes: [R(64), L(48)], measure: 0 },
-  { notes: [R(65)], measure: 0 },
-  { notes: [], measure: 0 },
-  { notes: [R(67), R(72), L(43)], measure: 1 },
-  { notes: [L(45)], measure: 1 },
-  { notes: [R(60)], measure: 2 }
+  { notes: [R(64), L(48)], measure: 0, time: 0, bpm: 100 },
+  { notes: [R(65)], measure: 0, time: 0.25, bpm: 100 },
+  { notes: [], measure: 0, time: 0.5, bpm: 100 },
+  { notes: [R(67), R(72), L(43)], measure: 1, time: 1, bpm: 100 },
+  { notes: [L(45)], measure: 1, time: 1.25, bpm: 100 },
+  { notes: [R(60)], measure: 2, time: 2, bpm: 100 }
 ];
 
 describe('score follower', () => {
