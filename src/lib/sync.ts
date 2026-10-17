@@ -123,28 +123,25 @@ export interface SetupParams {
   profile?: string;
 }
 
-export function setupParams(href: string): { params: SetupParams; clean: string } | null {
+export function setupParams(href: string, appBase: string = import.meta.env.BASE_URL): { params: SetupParams; clean: string } | null {
   const url = new URL(href);
-  const hashQuery = url.hash.indexOf('?');
-  const sources = [url.searchParams, new URLSearchParams(hashQuery >= 0 ? url.hash.slice(hashQuery + 1) : '')];
   const params: SetupParams = {};
-  for (const q of sources) {
-    const server = q.get('server');
-    const profile = q.get('profile');
-    if (server !== null) params.server = server.trim().replace(/\/+$/, '');
-    if (profile !== null && /^[A-Za-z0-9_-]{1,40}$/.test(profile)) params.profile = profile;
-  }
+  const server = url.searchParams.get('server');
+  const profile = url.searchParams.get('profile');
+  if (server !== null) params.server = server.trim().replace(/\/+$/, '');
+  if (profile !== null && /^[A-Za-z0-9_-]{1,40}$/.test(profile)) params.profile = profile;
   if (params.server === undefined && params.profile === undefined) return null;
   url.searchParams.delete('server');
   url.searchParams.delete('profile');
-  url.hash = hashQuery >= 0 ? url.hash.slice(0, hashQuery) : url.hash;
-  if (url.hash === '#/' || url.hash === '#') url.hash = '#/settings';
+  if (url.pathname === appBase) url.pathname = appBase + 'settings';
   return { params, clean: url.href };
 }
 
-export function setupLink(appHref: string, server: string, profile: string): string {
+export function setupLink(appHref: string, server: string, profile: string, appBase: string = import.meta.env.BASE_URL): string {
   const url = new URL(appHref);
-  url.hash = `#/?${new URLSearchParams({ server: server || new URL('.', appHref).href.replace(/\/+$/, ''), ...(profile !== 'default' ? { profile } : {}) })}`;
+  url.pathname = appBase;
+  url.hash = '';
+  url.search = new URLSearchParams({ server: server || url.origin + appBase.replace(/\/+$/, ''), ...(profile !== 'default' ? { profile } : {}) }).toString();
   return url.href;
 }
 

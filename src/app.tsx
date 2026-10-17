@@ -48,7 +48,7 @@ export function App() {
     <div class="shell">
       <header class="topbar">
         <a class="brand" href={href('home')}>
-          <img src="./icon.svg" alt="" width={28} height={28} />
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" width={28} height={28} />
           <span>doremifaaa</span>
         </a>
         <nav class="nav">

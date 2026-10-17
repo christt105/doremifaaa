@@ -5,6 +5,7 @@ import { bus } from './lib/input/bus';
 import { installComputerKeyboard } from './lib/input/keyboard';
 import { startMic } from './lib/input/mic';
 import { autoConnectMidi } from './lib/input/midi';
+import { installRouter } from './router';
 import { settings } from './lib/settings';
 import { startSync } from './lib/sync';
 import * as synth from './lib/synth';
@@ -18,6 +19,7 @@ bus.onNote((e) => {
   else synth.noteOff(e.midi);
 });
 
+installRouter();
 startSync();
 installComputerKeyboard();
 void autoConnectMidi();

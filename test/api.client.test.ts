@@ -4,7 +4,7 @@ import { settings, updateSettings } from '../src/lib/settings';
 
 const meta: PieceMeta = { title: 'Wind', composer: null, status: 'Learning', difficulty: null, tags: ['anime'], source: null, video: null, startedAt: null, finishedAt: null, notes: null };
 
-beforeEach(() => vi.stubGlobal('location', { href: 'http://lib.local/' }));
+beforeEach(() => vi.stubGlobal('location', { href: 'http://lib.local/', origin: 'http://lib.local' }));
 afterEach(() => {
   vi.unstubAllGlobals();
   updateSettings({ serverToken: '' });

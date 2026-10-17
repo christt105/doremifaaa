@@ -6,7 +6,7 @@ import { deleteLocal, getLocal, listLocal, type LocalPiece } from '../lib/locald
 import { FILE_ACCEPT, fileKind, importFile, listSamples, type Sample } from '../lib/sources';
 import { QualityBadge } from '../components/QualityBadge';
 import { VaultImport } from '../components/VaultImport';
-import { href } from '../router';
+import { href, navigate } from '../router';
 import { errorText } from './Manage';
 
 type LocalMeta = Omit<LocalPiece, 'data'>;
@@ -201,7 +201,7 @@ export function Library() {
     }
     setMessage(rejected.map((name) => t('library.notSupported', { name })).join(' '));
     reloadLocal();
-    if (last && list.length === 1) location.hash = href(last.kind === 'score' ? 'score' : 'pdf', 'local', last.id);
+    if (last && list.length === 1) navigate(href(last.kind === 'score' ? 'score' : 'pdf', 'local', last.id));
   };
 
   const toServer = async (p: LocalMeta) => {

@@ -52,7 +52,7 @@ export interface ServerLibrary {
 export function libraryBase(): string {
   const custom = settings.get().libraryUrl.trim().replace(/\/+$/, '');
   if (custom) return custom + '/';
-  return new URL('.', location.href).href;
+  return location.origin + import.meta.env.BASE_URL;
 }
 
 export function libraryUrl(path: string): string {

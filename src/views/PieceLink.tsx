@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useT } from '../i18n';
 import { findServerPiece } from '../lib/library';
-import { href, type ViewProps } from '../router';
+import { href, navigate, type ViewProps } from '../router';
 
 export function PieceLink({ route }: ViewProps) {
   const t = useT();
@@ -9,8 +9,8 @@ export function PieceLink({ route }: ViewProps) {
   const [missing, setMissing] = useState(false);
   useEffect(() => {
     void findServerPiece(id).then((p) => {
-      if (p?.hasScore) location.replace(href('score', 'server', p.id));
-      else if (p?.hasPdf) location.replace(href('pdf', 'server', p.id));
+      if (p?.hasScore) navigate(href('score', 'server', p.id), true);
+      else if (p?.hasPdf) navigate(href('pdf', 'server', p.id), true);
       else setMissing(true);
     });
   }, [id]);

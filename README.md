@@ -36,7 +36,7 @@ The Docker image serves the app plus a small API that turns a folder of Markdown
 - Every note whose frontmatter has `type: partitura` becomes a piece. `titulo`/`title`, `estado`/`status`, `dificultad`/`difficulty`, `tags`, `fuente`/`source` and `video` are shown in the list.
 - The score is the file named in `musicxml:` (path or `[[wikilink]]`), an embedded `![[*.mxl]]`, or a `.mxl`/`.musicxml`/`.xml` file with the same name as the note anywhere in the vault.
 - The PDF is the file named in `pdf:` or the first embedded `![[*.pdf]]`. If that file is a real PDF it is served as is. If it is a tiny text file containing a URL (for example a Paperless-ngx share link) the server proxies it. With `PAPERLESS_TOKEN` set, `paperless_id` is fetched straight from the Paperless API.
-- `#/piece/<note name>` opens a piece directly (score if there is one, PDF otherwise), so you can link to it from the note itself.
+- `/piece/<note name>` opens a piece directly (score if there is one, PDF otherwise), so you can link to it from the note itself.
 
 ```yaml
 services:
@@ -76,7 +76,7 @@ services:
 
 ### Score store
 
-Besides the vault, which is never written to, the server keeps its own store of pieces: MusicXML (`.musicxml`, `.xml`, `.mxl`) and PDF files you upload, with their metadata. Store pieces are listed together with the vault pieces, and a vault piece that has been imported into the store only shows up once, as the store piece. `#/piece/<note name>` links keep working after an import.
+Besides the vault, which is never written to, the server keeps its own store of pieces: MusicXML (`.musicxml`, `.xml`, `.mxl`) and PDF files you upload, with their metadata. Store pieces are listed together with the vault pieces, and a vault piece that has been imported into the store only shows up once, as the store piece. `/piece/<note name>` links keep working after an import.
 
 Everything lives in `DATA_DIR`: a SQLite database (`doremifaaa.db`) and one folder per piece under `files/`. Mount it as a volume and back it up. The image runs as the `node` user (uid 1000), so a bind mount like `./data` must be writable by that uid (`mkdir data && sudo chown 1000:1000 data`). If the folder cannot be opened the server keeps serving the vault and reports the problem in `/api/health` (`storeError`).
 
@@ -122,13 +122,13 @@ curl -X DELETE -H "$AUTH" "$SERVER/api/pieces/<id>"
 
 ### Importing the vault into the store
 
-Repertoire › "Import from the vault" (or `POST /api/import/vault`, optionally with `{ "ids": [...] }`) copies every vault piece into the store in one go: metadata from the frontmatter, the score file and the PDF. A real PDF is copied, a share-link stub is downloaded only if it points to `PAPERLESS_URL`, and with `PAPERLESS_TOKEN` a `paperless_id` is fetched from the Paperless API. The vault is only read. Imported pieces keep their "open note" link and their `#/piece/<note name>` address, and from then on the list shows the store copy instead of the vault one. Running it again only fills in files that are still missing (for example a PDF whose download failed), it never duplicates pieces. `GET /api/import/vault` shows what would be imported.
+Repertoire › "Import from the vault" (or `POST /api/import/vault`, optionally with `{ "ids": [...] }`) copies every vault piece into the store in one go: metadata from the frontmatter, the score file and the PDF. A real PDF is copied, a share-link stub is downloaded only if it points to `PAPERLESS_URL`, and with `PAPERLESS_TOKEN` a `paperless_id` is fetched from the Paperless API. The vault is only read. Imported pieces keep their "open note" link and their `/piece/<note name>` address, and from then on the list shows the store copy instead of the vault one. Running it again only fills in files that are still missing (for example a PDF whose download failed), it never duplicates pieces. `GET /api/import/vault` shows what would be imported.
 
 ### Syncing settings and progress
 
 With a store, settings, statistics and spaced repetition progress are kept on the server too, so every device that uses it shares them. The app syncs when it starts, when it gets focus and a couple of seconds after a change. Progress is merged item by item, so practising on two devices never loses answers; other values keep the newest change. The server address, the write token, the MIDI input and the microphone switch stay on each device.
 
-To set up a device, open Settings › Server and enter the server address, or open a setup link such as `https://christt105.github.io/doremifaaa/#/?server=http://192.168.1.15:8095` ("Copy setup link" in Settings builds it). Devices with the same profile (`default` unless you change it) share data, so several people can use one server with a profile each. Without a server, or with a server without a store, everything stays in the browser as before.
+To set up a device, open Settings › Server and enter the server address, or open a setup link such as `https://christt105.github.io/doremifaaa/?server=http://192.168.1.15:8095` ("Copy setup link" in Settings builds it). Devices with the same profile (`default` unless you change it) share data, so several people can use one server with a profile each. Without a server, or with a server without a store, everything stays in the browser as before.
 
 | Request | What it does |
 | --- | --- |
@@ -204,7 +204,7 @@ npm run dev
 | `npm run deploy:pages` | Build and publish `dist/` to the `gh-pages` branch |
 | `node scripts/make-samples.mjs` | Regenerate the bundled sample scores |
 
-Stack: [Preact](https://preactjs.com), [VexFlow](https://www.vexflow.com) for generated exercises, [OpenSheetMusicDisplay](https://opensheetmusicdisplay.org) for MusicXML, [pdf.js](https://mozilla.github.io/pdf.js/) for PDFs, TypeScript and Vite. The server is plain Node with no dependencies (the store uses the built-in `node:sqlite`, Node 22.13 or newer). The build uses relative paths, so it can be hosted in any subfolder.
+Stack: [Preact](https://preactjs.com), [VexFlow](https://www.vexflow.com) for generated exercises, [OpenSheetMusicDisplay](https://opensheetmusicdisplay.org) for MusicXML, [pdf.js](https://mozilla.github.io/pdf.js/) for PDFs, TypeScript and Vite. The server is plain Node with no dependencies (the store uses the built-in `node:sqlite`, Node 22.13 or newer). The build assumes it is served from the root; set `BASE_PATH` (for example `BASE_PATH=/doremifaaa/ npm run build`) to host it in a subfolder, and make the host fall back to `index.html` for unknown paths (the bundled server does). Old `#/...` links are redirected to the clean URL on load.
 
 ## License
 

@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('server library lookup', () => {
   it('finds a store piece by the vault note it was imported from', async () => {
-    vi.stubGlobal('location', { href: 'http://lib.local/' });
+    vi.stubGlobal('location', { href: 'http://lib.local/', origin: 'http://lib.local' });
     const pieces = [
       { ...piece, id: 'abcdefghij', location: 'store', origin: 'vault', originRef: 'Route 201' },
       { ...piece, id: 'Wind', location: 'vault', origin: null, originRef: null }
