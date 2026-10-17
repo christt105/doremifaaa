@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { bus } from '../lib/input/bus';
+import { followScroll } from '../lib/keyscroll';
 import { isBlackKey, midiName } from '../lib/music';
 import { settings } from '../lib/settings';
 import { useStore } from '../lib/store';
@@ -14,6 +15,7 @@ interface Props {
   labels?: boolean;
   colors?: Map<number, string>;
   titles?: Map<number, string>;
+  follow?: number[];
 }
 
 const BLACK_OFFSET: Record<number, number> = { 1: -0.12, 3: 0.12, 6: -0.15, 8: 0, 10: 0.15 };
@@ -24,7 +26,7 @@ export function useHeldNotes(): ReadonlySet<number> {
   return held;
 }
 
-export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, labels, colors, titles }: Props) {
+export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, labels, colors, titles, follow }: Props) {
   const held = useHeldNotes();
   const { naming, showNoteNames } = useStore(settings);
   const showLabels = labels ?? showNoteNames;
@@ -41,6 +43,14 @@ export function PianoKeyboard({ low = 36, high = 96, marks, interactive = true, 
     const c4 = whites.indexOf(60);
     if (c4 >= 0) el.scrollLeft = (c4 / whites.length) * el.scrollWidth - el.clientWidth / 2;
   }, [low, high]);
+
+  const followKey = follow?.join(',') ?? '';
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !follow) return;
+    const target = followScroll(low, high, follow, { left: el.scrollLeft, width: el.clientWidth, total: el.scrollWidth });
+    if (target !== null) el.scrollTo({ left: target, behavior: 'smooth' });
+  }, [followKey, low, high]);
 
   const press = (midi: number, pointerId: number) => {
     if (!interactive) return;
