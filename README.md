@@ -41,7 +41,7 @@ The Docker image serves the app plus a small API that turns a folder of Markdown
 ```yaml
 services:
   doremifaaa:
-    build: https://github.com/christt105/doremifaaa.git
+    image: ghcr.io/christt105/doremifaaa:latest
     container_name: doremifaaa
     restart: unless-stopped
     ports:
@@ -54,6 +54,8 @@ services:
       - /path/to/obsidian/vault:/vault:ro
       - ./data:/data
 ```
+
+Every push to `main` publishes `latest` and a `sha-<commit>` tag; pin the `sha-` tag to update on your own schedule, or use `build: https://github.com/christt105/doremifaaa.git` to build from source.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
